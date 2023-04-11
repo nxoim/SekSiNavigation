@@ -55,7 +55,11 @@ fun ExpandableItemLayout(
 	onBackInvokedDispatcher: OnBackInvokedDispatcher,
 	nonOverlayContent: @Composable () -> Unit
 ) {
-	val isOverlaying = state.overlayStack.lastOrNull() != null
+	val isOverlaying by remember {
+		derivedStateOf {
+			state.overlayStack.lastOrNull() != null
+		}
+	}
 	var screenSize by remember { mutableStateOf(IntSize.Zero) }
 	val density = LocalDensity.current.density
 
@@ -111,8 +115,6 @@ fun ExpandableItemLayout(
 				)
 			}
 	) {
-		// display content behind the overlay
-		// TODO wrap in a box and apply scrim
 		Box(
 			Modifier
 				.drawWithContent {
@@ -141,20 +143,23 @@ fun ExpandableItemLayout(
 				)
 			}
 			// this one is for the scrim
-			val isOverlayAboveOtherOverlays = state.overlayStack.lastOrNull() == key
-			val isExpanded = itemState.isExpanded
+			val isOverlayAboveOtherOverlays by remember{ derivedStateOf { state.overlayStack.lastOrNull() == key } }
+			val isExpanded by remember{ derivedStateOf { itemState.isExpanded } }
 
-			val density = LocalDensity.current.density
-			val originalSize = IntSize(
-				(itemState.originalBounds.size.width / density).toInt(),
-				(itemState.originalBounds.size.height / density).toInt()
-			)
-			val originalOffset = itemState.originalBounds.topLeft
+			val originalSize by remember{
+				derivedStateOf {
+					IntSize(
+						(itemState.originalBounds.size.width / density).toInt(),
+						(itemState.originalBounds.size.height / density).toInt()
+					)
+				}
+			}
+			val originalOffset by remember{ derivedStateOf { itemState.originalBounds.topLeft  } }
 			var overlayBounds by remember { mutableStateOf(Rect.Zero) }
 
-			val backGestureProgress = itemState.backGestureProgress
-			val backGestureSwipeEdge = itemState.backGestureSwipeEdge
-			val backGestureOffset = itemState.backGestureOffset
+			val backGestureProgress by remember{ derivedStateOf { itemState.backGestureProgress } }
+			val backGestureSwipeEdge by remember{ derivedStateOf { itemState.backGestureSwipeEdge } }
+			val backGestureOffset by remember{ derivedStateOf { itemState.backGestureOffset } }
 			val positionAnimationSpec = if (isExpanded)
 				tween<Offset>(400, 0, easing = EaseOutExpo)
 			else
@@ -306,7 +311,11 @@ fun ExpandableItemLayout(
 				)
 			}
 
-			val lastOverlayScrimFraction = state.itemsState[state.overlayStack.last()]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
+			val lastOverlayScrimFraction by remember{
+				derivedStateOf {
+					state.itemsState[state.overlayStack.lastOrNull()]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
+				}
+			}
 			val overlayScrim by animateColorAsState(
 				MaterialTheme.colorScheme.scrim.copy(
 					if (isOverlayAboveOtherOverlays)
