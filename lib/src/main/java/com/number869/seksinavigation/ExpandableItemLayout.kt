@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
@@ -55,6 +56,7 @@ fun ExpandableItemLayout(
 	nonOverlayContent: @Composable () -> Unit
 ) {
 	val isOverlaying = state.overlayStack.lastOrNull() != null
+	var screenSize by remember { mutableStateOf(IntSize.Zero) }
 
 	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34 || Build.VERSION.CODENAME == "UpsideDownCake") {
 		@RequiresApi(34) object: OnBackAnimationCallback {
@@ -98,7 +100,7 @@ fun ExpandableItemLayout(
 		label = ""
 	)
 
-	Box(Modifier.fillMaxSize()) {
+	Box(Modifier.fillMaxSize().onSizeChanged { screenSize = it }) {
 		// display content behind the overlay
 		// TODO wrap in a box and apply scrim
 		Box(
@@ -178,8 +180,8 @@ fun ExpandableItemLayout(
 			// all these calculations to tune the animation
 			val sizeExpandedWithSwipeProgress: () -> IntSize = {
 				IntSize(
-					(state.screenSize.width * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt(),
-					(state.screenSize.height * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt()
+					(screenSize.width * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt(),
+					(screenSize.height * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt()
 				)
 			}
 
@@ -187,11 +189,11 @@ fun ExpandableItemLayout(
 				Offset(
 					if (backGestureSwipeEdge == 0)
 					// if swipe is from the left side
-						((state.screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress)
+						((screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress)
 					else
 					// if swipe is from the right side
-						(-(state.screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress),
-					((backGestureOffset.y + (-state.screenSize.height * backGestureProgress * 2)) * onSwipeOffsetYChangeExtent) * onSwipeOffsetYPrevalence
+						(-(screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress),
+					((backGestureOffset.y + (-screenSize.height * backGestureProgress * 2)) * onSwipeOffsetYChangeExtent) * onSwipeOffsetYPrevalence
 				)
 			}
 
@@ -270,8 +272,8 @@ fun ExpandableItemLayout(
 				}
 
 				// TODO fix scale fraction
-//				val widthScaleFraction = animatedSize.width / state.screenSize.width.toFloat()
-//				val heightScaleFraction = animatedSize.height / state.screenSize.height.toFloat()
+//				val widthScaleFraction = animatedSize.width / screenSize.width.toFloat()
+//				val heightScaleFraction = animatedSize.height / screenSize.height.toFloat()
 //
 //				state.setScaleFraction(
 //					key,
@@ -281,8 +283,8 @@ fun ExpandableItemLayout(
 
 			// i dont remember why i thought this was needed
 			LaunchedEffect(animatedSize) {
-				val widthForOriginalProgressCalculation = (processedSize().width.value - originalSize.width) / (state.screenSize.width - originalSize.width)
-				val heightForOriginalProgressCalculation = (processedSize().height.value - originalSize.height) / (state.screenSize.height - originalSize.height)
+				val widthForOriginalProgressCalculation = (processedSize().width.value - originalSize.width) / (screenSize.width - originalSize.width)
+				val heightForOriginalProgressCalculation = (processedSize().height.value - originalSize.height) / (screenSize.height - originalSize.height)
 
 				state.setSizeAgainstOriginalProgress(
 					key,
