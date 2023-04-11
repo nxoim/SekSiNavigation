@@ -59,9 +59,15 @@ fun ExpandableItemLayout(
 	onBackInvokedDispatcher: OnBackInvokedDispatcher,
 	nonOverlayContent: @Composable () -> Unit
 ) {
+	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
 	val isOverlaying by remember {
 		derivedStateOf {
-			state.overlayStack.lastOrNull() != null
+			lastOverlayKey != null
+		}
+	}
+	val lastOverlayScrimFraction by remember{
+		derivedStateOf {
+			state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
 		}
 	}
 	var screenSize by remember { mutableStateOf(IntSize.Zero) }
@@ -75,18 +81,19 @@ fun ExpandableItemLayout(
 
 			override fun onBackProgressed(backEvent: BackEvent) {
 				super.onBackProgressed(backEvent)
-				val key = state.overlayStack.last()
-				val itemState = state.itemsState[key]
+				val itemState = state.itemsState[lastOverlayKey]
 
 				if (itemState != null) {
-					state.itemsState.replace(
-						key,
-						itemState.copy(
-							backGestureProgress = backEvent.progress,
-							backGestureSwipeEdge = backEvent.swipeEdge,
-							backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+					lastOverlayKey?.let {
+						state.itemsState.replace(
+							it,
+							itemState.copy(
+								backGestureProgress = backEvent.progress,
+								backGestureSwipeEdge = backEvent.swipeEdge,
+								backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+							)
 						)
-					)
+					}
 				}
 			}
 		}
@@ -94,21 +101,33 @@ fun ExpandableItemLayout(
 		OnBackInvokedCallback { state.closeLastOverlay() }
 	}
 
-	if (state.overlayStack.isNotEmpty())
-	onBackInvokedDispatcher.registerOnBackInvokedCallback(
+	if (isOverlaying) onBackInvokedDispatcher.registerOnBackInvokedCallback(
 		OnBackInvokedDispatcher.PRIORITY_OVERLAY,
 		onBackPressedCallback
 	)
 
-	val baseUiScrimFraction = if (isOverlaying)
-		state.itemsState[state.overlayStack.lastOrNull()]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
-	else
-		0f
-
 	val baseUiScrimColor by animateColorAsState(
-		MaterialTheme.colorScheme.scrim.copy(0.3f * baseUiScrimFraction),
+		MaterialTheme.colorScheme.scrim.copy(
+			if (!isOverlaying)
+				0f
+			else
+				if(state.itemsState[lastOverlayKey]?.isExpanded == true)
+					0.3f
+				else
+					0.3f * (lastOverlayScrimFraction)
+		),
 		label = ""
 	)
+
+	val processedNonOverlayScale: () -> Float = {
+		if (!isOverlaying)
+			1f
+		else
+			if(state.itemsState[lastOverlayKey]?.isExpanded == true && (state.itemsState[lastOverlayKey]?.backGestureProgress != 0f))
+				0.9f
+			else
+				(1f - lastOverlayScrimFraction * 0.1f)
+	}
 
 	Box(
 		Modifier
@@ -127,8 +146,8 @@ fun ExpandableItemLayout(
 					drawRect(baseUiScrimColor)
 				}
 				.graphicsLayer {
-					scaleX = (1f - baseUiScrimFraction) + (0.9f * baseUiScrimFraction)
-					scaleY = (1f - baseUiScrimFraction) + (0.9f * baseUiScrimFraction)
+					scaleX = processedNonOverlayScale()
+					scaleY = processedNonOverlayScale()
 				}
 		) {
 			nonOverlayContent()
@@ -148,7 +167,9 @@ fun ExpandableItemLayout(
 				)
 			}
 			// this one is for the scrim
-			val isOverlayAboveOtherOverlays by remember{ derivedStateOf { state.overlayStack.lastOrNull() == key } }
+			val isOverlayAboveOtherOverlays by remember{
+				derivedStateOf { lastOverlayKey == key }
+			}
 			val isExpanded by remember{ derivedStateOf { itemState.isExpanded } }
 
 			val originalSize by remember{
@@ -175,8 +196,8 @@ fun ExpandableItemLayout(
 					)
 				}
 			}
-			val backGestureSwipeEdge by remember{ derivedStateOf { itemState.backGestureSwipeEdge } }
-			val backGestureOffset by remember{ derivedStateOf { itemState.backGestureOffset } }
+			val backGestureSwipeEdge by remember { derivedStateOf { itemState.backGestureSwipeEdge } }
+			val backGestureOffset by remember { derivedStateOf { itemState.backGestureOffset } }
 
 			val positionAnimationSpec = if (isExpanded)
 				tween<Offset>(600, 0, easing = EaseOutExpo)
@@ -246,6 +267,19 @@ fun ExpandableItemLayout(
 				label = ""
 			)
 
+			val animatedScrim by animateColorAsState(
+				MaterialTheme.colorScheme.scrim.copy(
+					if (isOverlayAboveOtherOverlays)
+						0f
+					else
+						if(state.itemsState[lastOverlayKey]?.isExpanded == true)
+							0.3f
+						else
+							0.3f * (lastOverlayScrimFraction)
+				), label = ""
+			)
+
+
 			val animatedAlignment by animateAlignmentAsState(
 				if (isExpanded) Alignment.Center else Alignment.TopStart,
 				alignmentAnimationSpec
@@ -271,6 +305,16 @@ fun ExpandableItemLayout(
 						animatedSize.width.dp,
 						animatedSize.height.dp
 					)
+			}
+
+			val processedScale: () -> Float = {
+				if (lastOverlayKey == key)
+					1f
+				else
+					if(state.itemsState[lastOverlayKey]?.isExpanded == true && (state.itemsState[lastOverlayKey]?.backGestureProgress != 0f))
+						0.9f
+					else
+						(1f - lastOverlayScrimFraction * 0.1f)
 			}
 
 			LaunchedEffect(animatedOffset) {
@@ -329,19 +373,6 @@ fun ExpandableItemLayout(
 				)
 			}
 
-			val lastOverlayScrimFraction by remember{
-				derivedStateOf {
-					state.itemsState[state.overlayStack.lastOrNull()]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
-				}
-			}
-			val overlayScrim by animateColorAsState(
-				MaterialTheme.colorScheme.scrim.copy(
-					if (isOverlayAboveOtherOverlays)
-						0f
-					else
-						0.3f * (lastOverlayScrimFraction)
-				), label = ""
-			)
 			if (itemState.isOverlaying) {
 				Box(
 					Modifier
@@ -358,13 +389,11 @@ fun ExpandableItemLayout(
 						.onGloballyPositioned { overlayBounds = it.boundsInWindow() }
 						.drawWithContent {
 							drawContent()
-							drawRect(overlayScrim)
+							drawRect(animatedScrim)
 						}
 						.graphicsLayer {
-							scaleX =
-								if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f) else 1f
-							scaleY =
-								if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f) else 1f
+							scaleX = processedScale()
+							scaleY = processedScale()
 						}
 				) {
 					// display content
