@@ -2,8 +2,6 @@ package com.number869.seksinavigation
 
 import android.service.controls.ControlsProviderService.TAG
 import android.util.Log
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.spring
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
@@ -156,7 +154,6 @@ class ExpandableItemsState(
 @Composable
 fun rememberExpandableItemLayoutState(
 	coroutineScope: CoroutineScope = rememberCoroutineScope(),
-	animationSpec: AnimationSpec<Float> = spring()
 ) = remember {
 	ExpandableItemsState(
 		coroutineScope = coroutineScope,
