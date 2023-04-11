@@ -1,9 +1,10 @@
 package com.number869.seksinavigation
 
+import android.os.Build
 import android.window.BackEvent
 import android.window.OnBackAnimationCallback
+import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
@@ -50,27 +51,31 @@ fun ExpandableItemLayout(
 	nonOverlayContent: @Composable () -> Unit
 ) {
 	val isOverlaying = state.overlayStack.lastOrNull() != null
-	val onBackPressedCallback = @RequiresApi(34) object: OnBackAnimationCallback {
-		override fun onBackInvoked() {
-			state.closeLastOverlay()
-		}
+	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34) {
+		object: OnBackAnimationCallback {
+			override fun onBackInvoked() {
+				state.closeLastOverlay()
+			}
 
-		override fun onBackProgressed(backEvent: BackEvent) {
-			super.onBackProgressed(backEvent)
-			val key = state.overlayStack.last()
-			val itemState = state.itemsState[key]
+			override fun onBackProgressed(backEvent: BackEvent) {
+				super.onBackProgressed(backEvent)
+				val key = state.overlayStack.last()
+				val itemState = state.itemsState[key]
 
-			if (itemState != null) {
-				state.itemsState.replace(
-					key,
-					itemState.copy(
-						backGestureProgress = backEvent.progress,
-						backGestureSwipeEdge = backEvent.swipeEdge,
-						backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+				if (itemState != null) {
+					state.itemsState.replace(
+						key,
+						itemState.copy(
+							backGestureProgress = backEvent.progress,
+							backGestureSwipeEdge = backEvent.swipeEdge,
+							backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+						)
 					)
-				)
+				}
 			}
 		}
+	} else {
+		OnBackInvokedCallback { state.closeLastOverlay() }
 	}
 
 	// TODO check if theres anything to go back to other than device's
