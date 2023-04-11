@@ -57,6 +57,7 @@ fun ExpandableItemLayout(
 ) {
 	val isOverlaying = state.overlayStack.lastOrNull() != null
 	var screenSize by remember { mutableStateOf(IntSize.Zero) }
+	val density = LocalDensity.current.density
 
 	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34 || Build.VERSION.CODENAME == "UpsideDownCake") {
 		@RequiresApi(34) object: OnBackAnimationCallback {
@@ -100,7 +101,16 @@ fun ExpandableItemLayout(
 		label = ""
 	)
 
-	Box(Modifier.fillMaxSize().onSizeChanged { screenSize = it }) {
+	Box(
+		Modifier
+			.fillMaxSize()
+			.onSizeChanged {
+				screenSize = IntSize(
+					(it.width / density).toInt(),
+					(it.height / density).toInt()
+				)
+			}
+	) {
 		// display content behind the overlay
 		// TODO wrap in a box and apply scrim
 		Box(
