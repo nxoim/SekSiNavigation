@@ -1,0 +1,9 @@
+- name: Increment version number
+  run: |
+    # Get the latest release tag
+    LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+    # Increment the patch version
+    NEW_TAG=$(echo $LATEST_TAG | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+    # Set the new tag as an output variable
+    echo "::set-output name=new_tag::$NEW_TAG"
+  id: increment_version_number
