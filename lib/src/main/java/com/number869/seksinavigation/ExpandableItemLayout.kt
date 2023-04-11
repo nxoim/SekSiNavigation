@@ -5,10 +5,14 @@ import android.window.BackEvent
 import android.window.OnBackAnimationCallback
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -51,8 +55,9 @@ fun ExpandableItemLayout(
 	nonOverlayContent: @Composable () -> Unit
 ) {
 	val isOverlaying = state.overlayStack.lastOrNull() != null
-	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34) {
-		object: OnBackAnimationCallback {
+
+	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34 || Build.VERSION.CODENAME == "UpsideDownCake") {
+		@RequiresApi(34) object: OnBackAnimationCallback {
 			override fun onBackInvoked() {
 				state.closeLastOverlay()
 			}
@@ -78,8 +83,6 @@ fun ExpandableItemLayout(
 		OnBackInvokedCallback { state.closeLastOverlay() }
 	}
 
-	// TODO check if theres anything to go back to other than device's
-	//  homescreen
 	onBackInvokedDispatcher.registerOnBackInvokedCallback(
 		OnBackInvokedDispatcher.PRIORITY_OVERLAY,
 		onBackPressedCallback
@@ -96,7 +99,7 @@ fun ExpandableItemLayout(
 	)
 
 	Box(Modifier.fillMaxSize()) {
-		// display content behind the overla
+		// display content behind the overlay
 		// TODO wrap in a box and apply scrim
 		Box(
 			Modifier
@@ -140,6 +143,20 @@ fun ExpandableItemLayout(
 			val backGestureProgress = itemState.backGestureProgress
 			val backGestureSwipeEdge = itemState.backGestureSwipeEdge
 			val backGestureOffset = itemState.backGestureOffset
+			val positionAnimationSpec = if (isExpanded)
+				tween<Offset>(400, 0, easing = EaseOutExpo)
+			else
+				spring(0.7f, 650f)
+
+			val alignmentAnimationSpec: AnimationSpec<Float> = if (isExpanded)
+				tween(400, 0, easing = EaseOutExpo)
+			else
+				spring( 0.7f, 650f)
+
+			val sizeAnimationSpec = if (isExpanded)
+				tween<IntSize>(400, 0, easing = EaseOutExpo)
+			else
+				spring(0.9f, 1050f)
 
 			// there must be a way to calculate animation duration without
 			// hardcoding a number
@@ -184,19 +201,19 @@ fun ExpandableItemLayout(
 				} else {
 					originalSize
 				},
-				animationSpec = spring(0.95f, if (isExpanded) 350f else 650f),
+				sizeAnimationSpec,
 				label = ""
 			)
 
 			val animatedOffset by animateOffsetAsState(
 				if (isExpanded) offsetExpandedWithSwipeProgress() else originalOffset,
-				spring(if (isExpanded) 0.95f else 0.7f, 350f),
+				positionAnimationSpec,
 				label = ""
 			)
 
 			val animatedAlignment by animateAlignmentAsState(
 				if (isExpanded) Alignment.Center else Alignment.TopStart,
-				spring(if (isExpanded) 0.95f else 0.7f, 350f)
+				alignmentAnimationSpec
 			)
 
 			val processedOffset: () -> IntOffset = {
@@ -235,6 +252,10 @@ fun ExpandableItemLayout(
 					// the spring animation is done
 					delay(10)
 					isAnimating = false
+
+					// TODO force to smoothly transition to non overlay
+					// after a certain period of time to avoid weird bouncy
+					// dragging effect
 				}
 
 				if (backGestureOffset.x != 0f && isExpanded) {
@@ -293,9 +314,11 @@ fun ExpandableItemLayout(
 							drawContent()
 							drawRect(overlayScrim)
 						}
-						.graphicsLayer{
-							scaleX = if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f)  else 1f
-							scaleY = if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f)  else 1f
+						.graphicsLayer {
+							scaleX =
+								if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f) else 1f
+							scaleY =
+								if (state.overlayStack.lastOrNull() != key) (1f - lastOverlayScrimFraction * 0.1f) else 1f
 						}
 				) {
 					// display content
