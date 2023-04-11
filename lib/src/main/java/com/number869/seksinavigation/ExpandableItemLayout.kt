@@ -13,6 +13,8 @@ import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -330,6 +332,13 @@ fun ExpandableItemLayout(
 						.offset { processedOffset() }
 						.size(processedSize())
 						.align(animatedAlignment)
+						.clickable(
+							indication = null,
+							interactionSource = remember { MutableInteractionSource() }
+						) {
+							// workaround that fixes elements being clickable
+							// under the overlay
+						}
 						.onGloballyPositioned { overlayBounds = it.boundsInWindow() }
 						.drawWithContent {
 							drawContent()
