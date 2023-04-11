@@ -9,6 +9,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.EaseOutExpo
+import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 
@@ -92,6 +94,7 @@ fun ExpandableItemLayout(
 		OnBackInvokedCallback { state.closeLastOverlay() }
 	}
 
+	if (state.overlayStack.isNotEmpty())
 	onBackInvokedDispatcher.registerOnBackInvokedCallback(
 		OnBackInvokedDispatcher.PRIORITY_OVERLAY,
 		onBackPressedCallback
@@ -103,7 +106,7 @@ fun ExpandableItemLayout(
 		0f
 
 	val baseUiScrimColor by animateColorAsState(
-		MaterialTheme.colorScheme.scrim.copy(0.2f * baseUiScrimFraction),
+		MaterialTheme.colorScheme.scrim.copy(0.3f * baseUiScrimFraction),
 		label = ""
 	)
 
@@ -159,28 +162,41 @@ fun ExpandableItemLayout(
 			val originalOffset by remember{ derivedStateOf { itemState.originalBounds.topLeft  } }
 			var overlayBounds by remember { mutableStateOf(Rect.Zero) }
 
-			val backGestureProgress by remember{ derivedStateOf { itemState.backGestureProgress } }
+			val backGestureProgress by remember{
+				derivedStateOf {
+					min(
+						1f,
+						// the second number is the cutoff.
+						// the goal was to imitate googles
+						// animation
+						EaseOutQuart.transform(
+							itemState.backGestureProgress
+						)
+					)
+				}
+			}
 			val backGestureSwipeEdge by remember{ derivedStateOf { itemState.backGestureSwipeEdge } }
 			val backGestureOffset by remember{ derivedStateOf { itemState.backGestureOffset } }
+
 			val positionAnimationSpec = if (isExpanded)
-				tween<Offset>(400, 0, easing = EaseOutExpo)
+				tween<Offset>(600, 0, easing = EaseOutExpo)
 			else
-				spring(0.7f, 650f)
+				spring(0.97f, 500f)
 
 			val alignmentAnimationSpec: AnimationSpec<Float> = if (isExpanded)
-				tween(400, 0, easing = EaseOutExpo)
+				tween(600, 0, easing = EaseOutExpo)
 			else
-				spring( 0.7f, 650f)
+				spring( 0.97f, 500f)
 
 			val sizeAnimationSpec = if (isExpanded)
-				tween<IntSize>(400, 0, easing = EaseOutExpo)
+				tween<IntSize>(600, 0, easing = EaseOutExpo)
 			else
-				spring(0.9f, 1050f)
+				spring(0.97f, 700f)
 
 			// there must be a way to calculate animation duration without
 			// hardcoding a number
 			val onSwipeSizeChangeExtent = 0.15f
-			val onSwipeOffsetXChangeExtent = 0.1f
+			val onSwipeOffsetXChangeExtent = 0.15f
 			val onSwipeOffsetYChangeExtent = 0.1f
 			val onSwipeOffsetYPrevalence = backGestureProgress * 1f
 			// the higher the number above is - the earlier the gesture will
@@ -269,7 +285,7 @@ fun ExpandableItemLayout(
 					// decide that the animation is done
 					// because it might cross the actual position before
 					// the spring animation is done
-					delay(10)
+					delay(50)
 					isAnimating = false
 
 					// TODO force to smoothly transition to non overlay
@@ -323,7 +339,7 @@ fun ExpandableItemLayout(
 					if (isOverlayAboveOtherOverlays)
 						0f
 					else
-						0.2f * (lastOverlayScrimFraction)
+						0.3f * (lastOverlayScrimFraction)
 				), label = ""
 			)
 			if (itemState.isOverlaying) {
