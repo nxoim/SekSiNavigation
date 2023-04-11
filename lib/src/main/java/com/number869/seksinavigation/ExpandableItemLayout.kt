@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 
@@ -185,14 +184,8 @@ fun ExpandableItemLayout(
 
 			val backGestureProgress by remember{
 				derivedStateOf {
-					min(
-						1f,
-						// the second number is the cutoff.
-						// the goal was to imitate googles
-						// animation
-						EaseOutQuart.transform(
-							itemState.backGestureProgress
-						)
+					EaseOutQuart.transform(
+						itemState.backGestureProgress
 					)
 				}
 			}
