@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 jobs:
   increment_version_number:
     runs-on: ubuntu-latest
