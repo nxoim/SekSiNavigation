@@ -12,10 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.CoroutineScope
-import org.w3c.dom.Text
 
 
 data class ExpandableItemState(
@@ -43,7 +40,6 @@ data class ScaleFraction(
 
 class ExpandableItemsState(
 	val coroutineScope: CoroutineScope,
-	val screenSize: IntSize
 ) {
 	// contains the item's state
 	val itemsState = mutableStateMapOf<String, ExpandableItemState>()
@@ -74,16 +70,22 @@ class ExpandableItemsState(
 		// Get the ID of the most recently opened overlay
 		val lastOverlayId = overlayStack.lastOrNull()
 
-		itemsState.replace(
-			lastOverlayId!!,
-			itemsState[lastOverlayId]!!.copy(
-				isExpanded = false,
-				isOverlaying = true
+		if (lastOverlayId != null) {
+			itemsState.replace(
+				lastOverlayId,
+				itemsState[lastOverlayId]!!.copy(
+					isExpanded = false,
+					isOverlaying = true
+				)
 			)
-		)
-		// the removal happens in the ExpandableItemLayout in a
-		// coroutine after the animation is done
-		Log.d(TAG, "bruh closed" + lastOverlayId)
+
+			// the removal happens in the ExpandableItemLayout in a
+			// coroutine after the animation is done
+			Log.d(TAG, "bruh closed" + lastOverlayId)
+		} else {
+			overlayStack.clear()
+		}
+
 		Log.d(TAG, "bruh remaining" + overlayStack.joinToString("\n"))
 	}
 
@@ -152,14 +154,9 @@ class ExpandableItemsState(
 @Composable
 fun rememberExpandableItemLayoutState(
 	coroutineScope: CoroutineScope = rememberCoroutineScope(),
-	screenSize: IntSize = IntSize(
-		LocalConfiguration.current.screenWidthDp,
-		LocalConfiguration.current.screenHeightDp + 25
-	),
 	animationSpec: AnimationSpec<Float> = spring()
 ) = remember {
 	ExpandableItemsState(
 		coroutineScope = coroutineScope,
-		screenSize = screenSize
 	)
 }
