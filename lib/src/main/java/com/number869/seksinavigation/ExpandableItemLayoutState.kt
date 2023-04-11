@@ -42,38 +42,40 @@ class ExpandableItemsState(
 	val coroutineScope: CoroutineScope,
 ) {
 	// contains the item's state
-	val itemsState = mutableStateMapOf<String, ExpandableItemState>()
+	private val _itemsState = mutableStateMapOf<String, ExpandableItemState>()
+	val itemsState get() = _itemsState
 	// contains the item's content
 	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
 	// Define a list to keep track of the IDs of the overlays in the order they were opened
-	val overlayStack = mutableStateListOf<String>()
+	private val _overlayStack = mutableStateListOf<String>()
+	val overlayStack get() = _overlayStack
 
 	fun addToOverlayStack(key: Any) {
 		val keyAsString = key.toString()
 
-		if (overlayStack.contains(keyAsString)) {
-			Log.d(TAG, "Something is wrong. $keyAsString is already present in overlayStack.")
+		if (_overlayStack.contains(keyAsString)) {
+			Log.d(TAG, "Something is wrong. $keyAsString is already present in _overlayStack.")
 		} else {
-			overlayStack.add(keyAsString)
-			itemsState.replace(
+			_overlayStack.add(keyAsString)
+			_itemsState.replace(
 				keyAsString,
-				itemsState[keyAsString]!!.copy(
+				_itemsState[keyAsString]!!.copy(
 					backGestureProgress = 0f,
 					backGestureOffset = Offset.Zero,
 				)
 			)
-			Log.d(TAG, "Added $key to overlayStack")
+			Log.d(TAG, "Added $key to _overlayStack")
 		}
 	}
 
 	fun closeLastOverlay() {
 		// Get the ID of the most recently opened overlay
-		val lastOverlayId = overlayStack.lastOrNull()
+		val lastOverlayId = _overlayStack.lastOrNull()
 
 		if (lastOverlayId != null) {
-			itemsState.replace(
+			_itemsState.replace(
 				lastOverlayId,
-				itemsState[lastOverlayId]!!.copy(
+				_itemsState[lastOverlayId]!!.copy(
 					isExpanded = false,
 					isOverlaying = true
 				)
@@ -83,10 +85,10 @@ class ExpandableItemsState(
 			// coroutine after the animation is done
 			Log.d(TAG, "bruh closed" + lastOverlayId)
 		} else {
-			overlayStack.clear()
+			_overlayStack.clear()
 		}
 
-		Log.d(TAG, "bruh remaining" + overlayStack.joinToString("\n"))
+		Log.d(TAG, "bruh remaining" + _overlayStack.joinToString("\n"))
 	}
 
 	fun putItem(
@@ -95,8 +97,8 @@ class ExpandableItemsState(
 		content: @Composable () -> Unit
 	) {
 		// defaults
-		if (!itemsState.containsKey(key)) {
-			itemsState.putIfAbsent(
+		if (!_itemsState.containsKey(key)) {
+			_itemsState.putIfAbsent(
 				key,
 				ExpandableItemState(
 					originalBounds = sizeOriginal,
@@ -119,29 +121,29 @@ class ExpandableItemsState(
 	}
 
 	fun setBounds(key: String, newRect: Rect) {
-		itemsState.replace(key, itemsState[key]!!.copy(originalBounds = newRect))
+		_itemsState.replace(key, _itemsState[key]!!.copy(originalBounds = newRect))
 	}
 
 	fun setOffsetAnimationProgress(key: String, newProgress: Float) {
-		itemsState.replace(
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(
+			_itemsState[key]!!.copy(
 				offsetAnimationProgress = newProgress
 			)
 		)
 	}
 
 	fun setSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
-		itemsState.replace(
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
+			_itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
 		)
 	}
 
 	fun setScaleFraction(key: String, newFraction: ScaleFraction) {
-		itemsState.replace(
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(scaleFraction = newFraction)
+			_itemsState[key]!!.copy(scaleFraction = newFraction)
 		)
 	}
 
