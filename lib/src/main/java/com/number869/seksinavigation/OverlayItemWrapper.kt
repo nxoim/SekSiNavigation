@@ -19,10 +19,10 @@ import androidx.compose.ui.layout.onGloballyPositioned
 // with the updated originalBounds, position and alignment
 // TODO handle content possibly being null
 @Composable
-fun ExpandableWrapper(
+fun OverlayItemWrapper(
 	modifier: Modifier = Modifier,
 	key: Any,
-	state: ExpandableItemsState,
+	state: OverlayLayoutState,
 	content: @Composable () -> Unit
 ) {
 
@@ -56,6 +56,6 @@ fun ExpandableWrapper(
 
 	// pass the overlay originalBounds and position to the state and update the item
 	LaunchedEffect(updatedBounds) {
-		state.setBounds(key.toString(), updatedBounds)
+		state.setItemsBounds(key.toString(), updatedBounds)
 	}
 }

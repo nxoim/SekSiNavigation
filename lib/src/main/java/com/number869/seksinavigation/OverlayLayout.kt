@@ -53,8 +53,8 @@ import kotlin.math.roundToInt
 // position and originalBounds from its related ExpandableWrapper until expanded.
 // in case its expanded - switch to animated offset and originalBounds.
 @Composable
-fun ExpandableItemLayout(
-	state: ExpandableItemsState,
+fun OverlayLayout(
+	state: OverlayLayoutState,
 	onBackInvokedDispatcher: OnBackInvokedDispatcher,
 	nonOverlayContent: @Composable () -> Unit
 ) {
@@ -318,7 +318,7 @@ fun ExpandableItemLayout(
 			LaunchedEffect(animatedOffset) {
 				// bruh
 				animationProgress = ((-(overlayBounds.top - itemState.originalBounds.top) / (itemState.originalBounds.top - Rect.Zero.top)) +  -(overlayBounds.left - itemState.originalBounds.left) / (itemState.originalBounds.left - Rect.Zero.left)) / 2
-				state.setOffsetAnimationProgress(
+				state.setItemsOffsetAnimationProgress(
 					key,
 					animationProgress
 				)
@@ -362,7 +362,7 @@ fun ExpandableItemLayout(
 				val widthForOriginalProgressCalculation = (processedSize().width.value - originalSize.width) / (screenSize.width - originalSize.width)
 				val heightForOriginalProgressCalculation = (processedSize().height.value - originalSize.height) / (screenSize.height - originalSize.height)
 
-				state.setSizeAgainstOriginalProgress(
+				state.setItemsSizeAgainstOriginalProgress(
 					key,
 					SizeAgainstOriginalAnimationProgress(
 						max(widthForOriginalProgressCalculation, 0f),
@@ -398,10 +398,9 @@ fun ExpandableItemLayout(
 					// display content
 					// TODO fix color scheme default colors not being applied
 					// on text and icons
-					state.getContent(key)()
+					state.getItemsContent(key)()
 				}
 			}
 		}
 	}
 }
-

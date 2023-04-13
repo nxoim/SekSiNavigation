@@ -7,13 +7,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import kotlinx.coroutines.CoroutineScope
 
 
-data class ExpandableItemState(
+data class OverlayItemWrapperState(
 	val originalBounds: Rect,
 	var isExpanded: Boolean,
 	var isOverlaying: Boolean,
@@ -36,11 +34,9 @@ data class ScaleFraction(
 	val byHeight: Float = 0f
 )
 
-class ExpandableItemsState(
-	val coroutineScope: CoroutineScope,
-) {
+class OverlayLayoutState() {
 	// contains the item's state
-	private val _itemsState = mutableStateMapOf<String, ExpandableItemState>()
+	private val _itemsState = mutableStateMapOf<String, OverlayItemWrapperState>()
 	val itemsState get() = _itemsState
 	// contains the item's content
 	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
@@ -98,7 +94,7 @@ class ExpandableItemsState(
 		if (!_itemsState.containsKey(key)) {
 			_itemsState.putIfAbsent(
 				key,
-				ExpandableItemState(
+				OverlayItemWrapperState(
 					originalBounds = sizeOriginal,
 					isExpanded = false,
 					isOverlaying = false,
@@ -118,11 +114,11 @@ class ExpandableItemsState(
 		}
 	}
 
-	fun setBounds(key: String, newRect: Rect) {
+	fun setItemsBounds(key: String, newRect: Rect) {
 		_itemsState.replace(key, _itemsState[key]!!.copy(originalBounds = newRect))
 	}
 
-	fun setOffsetAnimationProgress(key: String, newProgress: Float) {
+	fun setItemsOffsetAnimationProgress(key: String, newProgress: Float) {
 		_itemsState.replace(
 			key,
 			_itemsState[key]!!.copy(
@@ -131,14 +127,14 @@ class ExpandableItemsState(
 		)
 	}
 
-	fun setSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
+	fun setItemsSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
 		_itemsState.replace(
 			key,
 			_itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
 		)
 	}
 
-	fun setScaleFraction(key: String, newFraction: ScaleFraction) {
+	fun setItemsScaleFraction(key: String, newFraction: ScaleFraction) {
 		_itemsState.replace(
 			key,
 			_itemsState[key]!!.copy(scaleFraction = newFraction)
@@ -146,16 +142,12 @@ class ExpandableItemsState(
 	}
 
 	@Composable
-	fun getContent(key: String): @Composable() (() -> Unit) {
+	fun getItemsContent(key: String): @Composable() (() -> Unit) {
 		return if (itemsContent[key] != null) itemsContent[key]!! else { { Text("sdfghjk") } }
 	}
 }
 
 @Composable
-fun rememberExpandableItemLayoutState(
-	coroutineScope: CoroutineScope = rememberCoroutineScope(),
-) = remember {
-	ExpandableItemsState(
-		coroutineScope = coroutineScope,
-	)
+fun rememberOverlayLayoutState() = remember {
+	OverlayLayoutState()
 }
