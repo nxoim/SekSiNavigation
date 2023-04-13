@@ -66,7 +66,7 @@ fun ExpandableItemLayout(
 	}
 	val lastOverlayScrimFraction by remember{
 		derivedStateOf {
-			state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.combinedProgress ?: 0f
+			state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.heightProgress ?: 0f
 		}
 	}
 	var screenSize by remember { mutableStateOf(IntSize.Zero) }
@@ -101,10 +101,14 @@ fun ExpandableItemLayout(
 	}
 
 	// why doesnt his work TODO
-	if (isOverlaying) onBackInvokedDispatcher.registerOnBackInvokedCallback(
-		OnBackInvokedDispatcher.PRIORITY_OVERLAY,
-		onBackPressedCallback
-	)
+	if (isOverlaying) if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+		onBackInvokedDispatcher.registerOnBackInvokedCallback(
+			OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+			onBackPressedCallback
+		)
+	} else {
+		// TODO handle back button on older android versions
+	}
 
 	val baseUiScrimColor by animateColorAsState(
 		MaterialTheme.colorScheme.scrim.copy(
@@ -206,7 +210,7 @@ fun ExpandableItemLayout(
 			val sizeAnimationSpec = if (isExpanded)
 				tween<IntSize>(600, 0, easing = EaseOutExpo)
 			else
-				spring(0.97f, 700f)
+				spring(0.97f, 500f)
 
 			// there must be a way to calculate animation duration without
 			// hardcoding a number
@@ -312,7 +316,8 @@ fun ExpandableItemLayout(
 			}
 
 			LaunchedEffect(animatedOffset) {
-				animationProgress = -(overlayBounds.top - itemState.originalBounds.top) / (itemState.originalBounds.top - Rect.Zero.top)
+				// bruh
+				animationProgress = ((-(overlayBounds.top - itemState.originalBounds.top) / (itemState.originalBounds.top - Rect.Zero.top)) +  -(overlayBounds.left - itemState.originalBounds.left) / (itemState.originalBounds.left - Rect.Zero.left)) / 2
 				state.setOffsetAnimationProgress(
 					key,
 					animationProgress
@@ -399,3 +404,4 @@ fun ExpandableItemLayout(
 		}
 	}
 }
+
