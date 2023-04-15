@@ -400,7 +400,7 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
 	val isOverlaying by remember { derivedStateOf { lastOverlayKey != null } }
 
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake") {
 		rememberCoroutineScope().launch {
 			val onBackPressedCallback = @RequiresApi(34) object: OnBackAnimationCallback {
 				override fun onBackInvoked() = state.closeLastOverlay()
@@ -428,12 +428,16 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 			}
 			// why doesnt his work TODO
 			if (isOverlaying)  {
-				thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
-					OnBackInvokedDispatcher.PRIORITY_OVERLAY,
-					onBackPressedCallback
-				)
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+					thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
+						OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+						onBackPressedCallback
+					)
+				}
 			} else {
-				thisOfActivity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackPressedCallback)
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+					thisOfActivity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackPressedCallback)
+				}
 			}
 		}
 	} else {
