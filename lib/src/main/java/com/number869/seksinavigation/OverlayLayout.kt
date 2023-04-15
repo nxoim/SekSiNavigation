@@ -3,8 +3,9 @@ package com.number869.seksinavigation
 import android.os.Build
 import android.window.BackEvent
 import android.window.OnBackAnimationCallback
-import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
@@ -27,6 +28,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -55,7 +58,7 @@ import kotlin.math.roundToInt
 @Composable
 fun OverlayLayout(
 	state: OverlayLayoutState,
-	onBackInvokedDispatcher: OnBackInvokedDispatcher,
+	thisOfActivity: ComponentActivity,
 	nonOverlayContent: @Composable () -> Unit
 ) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
@@ -69,46 +72,11 @@ fun OverlayLayout(
 			state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.heightProgress ?: 0f
 		}
 	}
+
 	var screenSize by remember { mutableStateOf(IntSize.Zero) }
 	val density = LocalDensity.current.density
 
-	val onBackPressedCallback = if (Build.VERSION.SDK_INT >= 34 || Build.VERSION.CODENAME == "UpsideDownCake") {
-		@RequiresApi(34) object: OnBackAnimationCallback {
-			override fun onBackInvoked() {
-				state.closeLastOverlay()
-			}
-
-			override fun onBackProgressed(backEvent: BackEvent) {
-				super.onBackProgressed(backEvent)
-				val itemState = state.itemsState[lastOverlayKey]
-
-				if (itemState != null) {
-					lastOverlayKey?.let {
-						state.itemsState.replace(
-							it,
-							itemState.copy(
-								backGestureProgress = backEvent.progress,
-								backGestureSwipeEdge = backEvent.swipeEdge,
-								backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
-							)
-						)
-					}
-				}
-			}
-		}
-	} else {
-		OnBackInvokedCallback { state.closeLastOverlay() }
-	}
-
-	// why doesnt his work TODO
-	if (isOverlaying) if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-		onBackInvokedDispatcher.registerOnBackInvokedCallback(
-			OnBackInvokedDispatcher.PRIORITY_OVERLAY,
-			onBackPressedCallback
-		)
-	} else {
-		// TODO handle back button on older android versions
-	}
+	handleBackGesture(state, thisOfActivity)
 
 	val baseUiScrimColor by animateColorAsState(
 		MaterialTheme.colorScheme.scrim.copy(
@@ -402,5 +370,51 @@ fun OverlayLayout(
 				}
 			}
 		}
+	}
+}
+
+@Composable
+fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
+	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
+	val isOverlaying by remember { derivedStateOf { lastOverlayKey != null } }
+
+	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+		rememberCoroutineScope().launch {
+			val onBackPressedCallback = @RequiresApi(34) object: OnBackAnimationCallback {
+				override fun onBackInvoked() = state.closeLastOverlay()
+
+				override fun onBackProgressed(backEvent: BackEvent) {
+					super.onBackProgressed(backEvent)
+					val itemState = state.itemsState[lastOverlayKey]
+
+					if (itemState != null) {
+						lastOverlayKey?.let {
+							state.itemsState.replace(
+								it,
+								itemState.copy(
+									backGestureProgress = backEvent.progress,
+									backGestureSwipeEdge = backEvent.swipeEdge,
+									backGestureOffset = Offset(
+										backEvent.touchX,
+										backEvent.touchY
+									)
+								)
+							)
+						}
+					}
+				}
+			}
+			// why doesnt his work TODO
+			if (isOverlaying)  {
+				thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
+					OnBackInvokedDispatcher.PRIORITY_OVERLAY,
+					onBackPressedCallback
+				)
+			} else {
+				thisOfActivity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackPressedCallback)
+			}
+		}
+	} else {
+		BackHandler(isOverlaying) { state.closeLastOverlay() }
 	}
 }
