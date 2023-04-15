@@ -1,5 +1,6 @@
 package com.number869.seksinavigation
 
+import android.annotation.SuppressLint
 import android.os.Build
 import android.window.BackEvent
 import android.window.OnBackAnimationCallback
@@ -205,6 +206,21 @@ fun OverlayLayout(
 				)
 			}
 
+			// by default is original offset and becomes a static target
+			// offset once collapse animation starts so that
+			// offset deviation can be calculated. this is needed for
+			// the whole animation to move with content with close
+			// to 0 latency
+			var initialTargetOffset by remember { mutableStateOf(originalOffset) }
+
+			val offsetDeviationFromTarget = if (isExpanded)
+				Offset.Zero
+			else
+				Offset(
+				originalOffset.x - initialTargetOffset.x,
+				originalOffset.y - initialTargetOffset.y
+			)
+
 			val offsetExpandedWithSwipeProgress: () -> Offset = {
 				Offset(
 					if (backGestureSwipeEdge == 0)
@@ -228,7 +244,12 @@ fun OverlayLayout(
 			)
 
 			val animatedOffset by animateOffsetAsState(
-				if (isExpanded) offsetExpandedWithSwipeProgress() else originalOffset,
+				if (isExpanded && !useGestureValues)
+					Offset.Zero
+				else if (!isExpanded)
+					initialTargetOffset
+				else
+					offsetExpandedWithSwipeProgress(),
 				positionAnimationSpec,
 				label = ""
 			)
@@ -257,8 +278,8 @@ fun OverlayLayout(
 					offsetExpandedWithSwipeProgress().y.roundToInt()
 				) else
 					IntOffset(
-						animatedOffset.x.roundToInt(),
-						animatedOffset.y.roundToInt()
+						(animatedOffset.x + offsetDeviationFromTarget.x).roundToInt(),
+						(animatedOffset.y + offsetDeviationFromTarget.y).roundToInt()
 					)
 			}
 
@@ -283,8 +304,18 @@ fun OverlayLayout(
 						(1f - lastOverlayScrimFraction * 0.1f)
 			}
 
+			LaunchedEffect(isExpanded) {
+				// only report this once
+				if (!isExpanded) initialTargetOffset = originalOffset
+			}
+
+			LaunchedEffect(backGestureOffset, animatedOffset) {
+				useGestureValues = backGestureProgress != 0f && isExpanded
+			}
+
 			LaunchedEffect(animatedOffset) {
 				// bruh
+				// calculate from the overlays actual location on screen
 				animationProgress = ((-(overlayBounds.top - itemState.originalBounds.top) / (itemState.originalBounds.top - Rect.Zero.top)) +  -(overlayBounds.left - itemState.originalBounds.left) / (itemState.originalBounds.left - Rect.Zero.left)) / 2
 				state.setItemsOffsetAnimationProgress(
 					key,
@@ -298,16 +329,6 @@ fun OverlayLayout(
 					// the spring animation is done
 					delay(50)
 					isAnimating = false
-
-					// TODO force to smoothly transition to non overlay
-					// after a certain period of time to avoid weird bouncy
-					// dragging effect
-				}
-
-				if (backGestureOffset.x != 0f && isExpanded) {
-					useGestureValues = true
-				} else if (!isExpanded) {
-					useGestureValues = false
 				}
 
 				if (!isExpanded && !isAnimating) {
@@ -373,6 +394,7 @@ fun OverlayLayout(
 	}
 }
 
+@SuppressLint("CoroutineCreationDuringComposition")
 @Composable
 fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
