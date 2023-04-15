@@ -9,7 +9,7 @@ android {
 	compileSdkPreview = "UpsideDownCake"
 
 	defaultConfig {
-		minSdk = 33
+		minSdk = 24
 		targetSdk = 33
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

@@ -2,20 +2,16 @@ package com.number869.seksinavigation
 
 import android.service.controls.ControlsProviderService.TAG
 import android.util.Log
-import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.spring
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import kotlinx.coroutines.CoroutineScope
 
 
-data class ExpandableItemState(
+data class OverlayItemWrapperState(
 	val originalBounds: Rect,
 	var isExpanded: Boolean,
 	var isOverlaying: Boolean,
@@ -38,42 +34,42 @@ data class ScaleFraction(
 	val byHeight: Float = 0f
 )
 
-class ExpandableItemsState(
-	val coroutineScope: CoroutineScope,
-) {
+class OverlayLayoutState() {
 	// contains the item's state
-	val itemsState = mutableStateMapOf<String, ExpandableItemState>()
+	private val _itemsState = mutableStateMapOf<String, OverlayItemWrapperState>()
+	val itemsState get() = _itemsState
 	// contains the item's content
 	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
 	// Define a list to keep track of the IDs of the overlays in the order they were opened
-	val overlayStack = mutableStateListOf<String>()
+	private val _overlayStack = mutableStateListOf<String>()
+	val overlayStack get() = _overlayStack
 
 	fun addToOverlayStack(key: Any) {
 		val keyAsString = key.toString()
 
-		if (overlayStack.contains(keyAsString)) {
-			Log.d(TAG, "Something is wrong. $keyAsString is already present in overlayStack.")
+		if (_overlayStack.contains(keyAsString)) {
+			Log.d(TAG, "Something is wrong. $keyAsString is already present in _overlayStack.")
 		} else {
-			overlayStack.add(keyAsString)
-			itemsState.replace(
+			_overlayStack.add(keyAsString)
+			_itemsState.replace(
 				keyAsString,
-				itemsState[keyAsString]!!.copy(
+				_itemsState[keyAsString]!!.copy(
 					backGestureProgress = 0f,
 					backGestureOffset = Offset.Zero,
 				)
 			)
-			Log.d(TAG, "Added $key to overlayStack")
+			Log.d(TAG, "Added $key to _overlayStack")
 		}
 	}
 
 	fun closeLastOverlay() {
 		// Get the ID of the most recently opened overlay
-		val lastOverlayId = overlayStack.lastOrNull()
+		val lastOverlayId = _overlayStack.lastOrNull()
 
 		if (lastOverlayId != null) {
-			itemsState.replace(
+			_itemsState.replace(
 				lastOverlayId,
-				itemsState[lastOverlayId]!!.copy(
+				_itemsState[lastOverlayId]!!.copy(
 					isExpanded = false,
 					isOverlaying = true
 				)
@@ -83,10 +79,10 @@ class ExpandableItemsState(
 			// coroutine after the animation is done
 			Log.d(TAG, "bruh closed" + lastOverlayId)
 		} else {
-			overlayStack.clear()
+			_overlayStack.clear()
 		}
 
-		Log.d(TAG, "bruh remaining" + overlayStack.joinToString("\n"))
+		Log.d(TAG, "bruh remaining" + _overlayStack.joinToString("\n"))
 	}
 
 	fun putItem(
@@ -95,10 +91,10 @@ class ExpandableItemsState(
 		content: @Composable () -> Unit
 	) {
 		// defaults
-		if (!itemsState.containsKey(key)) {
-			itemsState.putIfAbsent(
+		if (!_itemsState.containsKey(key)) {
+			_itemsState.putIfAbsent(
 				key,
-				ExpandableItemState(
+				OverlayItemWrapperState(
 					originalBounds = sizeOriginal,
 					isExpanded = false,
 					isOverlaying = false,
@@ -118,45 +114,40 @@ class ExpandableItemsState(
 		}
 	}
 
-	fun setBounds(key: String, newRect: Rect) {
-		itemsState.replace(key, itemsState[key]!!.copy(originalBounds = newRect))
+	fun setItemsBounds(key: String, newRect: Rect) {
+		_itemsState.replace(key, _itemsState[key]!!.copy(originalBounds = newRect))
 	}
 
-	fun setOffsetAnimationProgress(key: String, newProgress: Float) {
-		itemsState.replace(
+	fun setItemsOffsetAnimationProgress(key: String, newProgress: Float) {
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(
+			_itemsState[key]!!.copy(
 				offsetAnimationProgress = newProgress
 			)
 		)
 	}
 
-	fun setSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
-		itemsState.replace(
+	fun setItemsSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
+			_itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
 		)
 	}
 
-	fun setScaleFraction(key: String, newFraction: ScaleFraction) {
-		itemsState.replace(
+	fun setItemsScaleFraction(key: String, newFraction: ScaleFraction) {
+		_itemsState.replace(
 			key,
-			itemsState[key]!!.copy(scaleFraction = newFraction)
+			_itemsState[key]!!.copy(scaleFraction = newFraction)
 		)
 	}
 
 	@Composable
-	fun getContent(key: String): @Composable() (() -> Unit) {
+	fun getItemsContent(key: String): @Composable() (() -> Unit) {
 		return if (itemsContent[key] != null) itemsContent[key]!! else { { Text("sdfghjk") } }
 	}
 }
 
 @Composable
-fun rememberExpandableItemLayoutState(
-	coroutineScope: CoroutineScope = rememberCoroutineScope(),
-	animationSpec: AnimationSpec<Float> = spring()
-) = remember {
-	ExpandableItemsState(
-		coroutineScope = coroutineScope,
-	)
+fun rememberOverlayLayoutState() = remember {
+	OverlayLayoutState()
 }
