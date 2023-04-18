@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -35,9 +36,12 @@ fun OverlayItemWrapper(
 	// render the content only when item is expanded or has transitioned
 	Box(
 		modifierForCollapsed
-			.onGloballyPositioned { updatedBounds = it.boundsInWindow() }
+			.onGloballyPositioned {
+				updatedBounds = it.boundsInWindow()
+			}
+			.alpha(if (isOverlaying) 0f else 1f)
 	) {
-		if (!isOverlaying) content()
+		 content()
 	}
 
 	state.putItem(
