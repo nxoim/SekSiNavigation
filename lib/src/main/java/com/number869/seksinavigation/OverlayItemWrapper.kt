@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 
 // this should get cloned inside the overlay composable
 // only the cloned version changes its originalBounds, position when expanded, and its alignment
@@ -20,7 +22,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 // TODO handle content possibly being null
 @Composable
 fun OverlayItemWrapper(
-	modifier: Modifier = Modifier,
+	modifierForCollapsed: Modifier = Modifier,
+	expandedSize: DpSize = DpSize.Unspecified,
 	key: Any,
 	state: OverlayLayoutState,
 	content: @Composable () -> Unit
@@ -31,7 +34,7 @@ fun OverlayItemWrapper(
 
 	// render the content only when item is expanded or has transitioned
 	Box(
-		modifier
+		modifierForCollapsed
 			.onGloballyPositioned { updatedBounds = it.boundsInWindow() }
 	) {
 		if (!isOverlaying) content()
@@ -40,7 +43,8 @@ fun OverlayItemWrapper(
 	state.putItem(
 		key.toString(),
 		updatedBounds,
-		content
+		content,
+		expandedSize
 	)
 
 	// TODO fix scale fraction
