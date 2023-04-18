@@ -139,23 +139,9 @@ fun OverlayLayout(
 			}
 
 			// this one is for the scrim
-			val isOverlayAboveOtherOverlays by remember {
-				derivedStateOf { lastOverlayKey == key }
-			}
+			val isOverlayAboveOtherOverlays = lastOverlayKey == key
 
-			val overlayAboveThisOne = remember {
-				if (
-					state.itemsState.entries.elementAt(state.itemsState.entries.size - 1).key == key
-					&&
-					state.itemsState.entries.elementAt(state.itemsState.entries.size).key == lastOverlayKey
-				) {
-					state.itemsState.entries.elementAt(state.itemsState.entries.size - 1).key
-				} else {
-					null
-				}
-			}
-//
-			val nextOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
+			val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
 				0f
 			} else {
 				state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.heightProgress ?: 0f
@@ -278,7 +264,7 @@ fun OverlayLayout(
 						if(state.itemsState[lastOverlayKey]?.isExpanded == true)
 							0.3f
 						else
-							0.3f * (nextOverlayExpansionFraction)
+							0.3f * (lastOverlayExpansionFraction)
 				), label = ""
 			)
 
@@ -308,7 +294,7 @@ fun OverlayLayout(
 
 			val processedScale: () -> Float = {
 				// scale when another overlay is being displayed
-				((1f - nextOverlayExpansionFraction * 0.1f)
+				((1f - lastOverlayExpansionFraction * 0.1f)
 				+
 				// scale with gestures
 				(backGestureProgress * -onSwipeScaleChangeExtent)
