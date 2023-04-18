@@ -13,7 +13,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 
 // this should get cloned inside the overlay composable
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.DpSize
 fun OverlayItemWrapper(
 	modifierForCollapsed: Modifier = Modifier,
 	expandedSize: DpSize = DpSize.Unspecified,
+	isOriginalItemStatic: Boolean = false,
 	key: Any,
 	state: OverlayLayoutState,
 	content: @Composable () -> Unit
@@ -37,7 +37,11 @@ fun OverlayItemWrapper(
 	Box(
 		modifierForCollapsed
 			.onGloballyPositioned {
-				updatedBounds = it.boundsInWindow()
+				if (isOriginalItemStatic) {
+					if (!isOverlaying) updatedBounds = it.boundsInWindow()
+				} else {
+					updatedBounds = it.boundsInWindow()
+				}
 			}
 			.alpha(if (isOverlaying) 0f else 1f)
 	) {
