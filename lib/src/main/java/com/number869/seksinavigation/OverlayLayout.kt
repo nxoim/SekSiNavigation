@@ -10,8 +10,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.EaseOutExpo
-import androidx.compose.animation.core.EaseOutQuart
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
@@ -139,23 +139,9 @@ fun OverlayLayout(
 			}
 
 			// this one is for the scrim
-			val isOverlayAboveOtherOverlays by remember {
-				derivedStateOf { lastOverlayKey == key }
-			}
+			val isOverlayAboveOtherOverlays = lastOverlayKey == key
 
-			val overlayAboveThisOne = remember {
-				if (
-					state.itemsState.entries.elementAt(state.itemsState.entries.size - 1).key == key
-					&&
-					state.itemsState.entries.elementAt(state.itemsState.entries.size).key == lastOverlayKey
-				) {
-					state.itemsState.entries.elementAt(state.itemsState.entries.size - 1).key
-				} else {
-					null
-				}
-			}
-//
-			val nextOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
+			val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
 				0f
 			} else {
 				state.itemsState[lastOverlayKey]?.sizeAgainstOriginalAnimationProgress?.heightProgress ?: 0f
@@ -174,16 +160,15 @@ fun OverlayLayout(
 			val originalOffset by remember{ derivedStateOf { itemState.originalBounds.topLeft  } }
 			var overlayBounds by remember { mutableStateOf(Rect.Zero) }
 
-			val backGestureProgress by remember{
+			val gestureProgress by remember{
 				derivedStateOf {
-					EaseOutQuart.transform(
+					EaseOutCubic.transform(
 						itemState.backGestureProgress
 					)
 				}
 			}
-
-			val backGestureSwipeEdge by remember { derivedStateOf { itemState.backGestureSwipeEdge } }
-			val backGestureOffset by remember { derivedStateOf { itemState.backGestureOffset } }
+			val gestureSwipeEdge by remember { derivedStateOf { itemState.backGestureSwipeEdge } }
+			val gestureOffset by remember { derivedStateOf { itemState.backGestureOffset } }
 
 			val positionAnimationSpec = if (isExpanded)
 				tween<Offset>(600, 0, easing = EaseOutExpo)
@@ -200,47 +185,53 @@ fun OverlayLayout(
 			else
 				spring(0.97f, 500f)
 
-			// there must be a way to calculate animation duration without
-			// hardcoding a number
-			val onSwipeScaleChangeExtent = 0.15f
-			val onSwipeOffsetXChangeExtent = 0.15f
-			val onSwipeOffsetYChangeExtent = 0.1f
-			val onSwipeOffsetYPrevalence = backGestureProgress * 1f
+
+			val onSwipeScaleChangeExtent = 0.4f
+			val gestureTransformEffectAmount = 0.2f
+
 			// the higher the number above is - the earlier the gesture will
 			// fully depend the vertical swipe offset
 
 			// interpolates from 0 to 1 over the specified duration
 			// into "animationProgress"
 			var animationProgress by remember { mutableStateOf(0f) }
-
 			var isAnimating by remember { mutableStateOf(true) }
-
 			var useGestureValues by remember { mutableStateOf(false) }
 
 			// by default is original offset and becomes a static target
-			// offset once collapse animation starts so that
-			// offset deviation can be calculated. this is needed for
-			// the whole animation to move with content with close
-			// to 0 latency
+			//	for the animation once isExpanded is false so that
+			// distance of the swipe gesture can be calculated. this is
+			// needed for the whole animation to move with the content as
+			// soon as the finger moves. the alternative, simple use of
+			// animate*AsState, would bring a lot of input latency
 			var initialTargetOffset by remember { mutableStateOf(originalOffset) }
+
+			// used to calculate how much the user swiped across the
+			// screen in Dp
+			var initialGestureOffset by remember { mutableStateOf(Offset.Zero) }
 
 			val offsetDeviationFromTarget = if (isExpanded)
 				Offset.Zero
 			else
 				Offset(
-				originalOffset.x - initialTargetOffset.x,
-				originalOffset.y - initialTargetOffset.y
+				(originalOffset.x - initialTargetOffset.x),
+				(originalOffset.y - initialTargetOffset.y)
+			)
+
+			val gestureDistanceFromStartingPoint = Offset (
+				gestureOffset.x - initialGestureOffset.x,
+				gestureOffset.y - initialGestureOffset.y
 			)
 
 			val offsetExpandedWithSwipeProgress: () -> Offset = {
 				Offset(
-					if (backGestureSwipeEdge == 0)
+					if (gestureSwipeEdge == 0)
 					// if swipe is from the left side
-						((screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress)
+						((screenSize.width * gestureTransformEffectAmount) * gestureProgress)
 					else
 					// if swipe is from the right side
-						(-(screenSize.width * onSwipeOffsetXChangeExtent) * backGestureProgress),
-					((backGestureOffset.y + (-screenSize.height * backGestureProgress * 2)) * onSwipeOffsetYChangeExtent) * onSwipeOffsetYPrevalence
+						(-(screenSize.width * gestureTransformEffectAmount) * gestureProgress),
+					gestureDistanceFromStartingPoint.y * gestureTransformEffectAmount
 				)
 			}
 
@@ -278,10 +269,9 @@ fun OverlayLayout(
 						if(state.itemsState[lastOverlayKey]?.isExpanded == true)
 							0.3f
 						else
-							0.3f * (nextOverlayExpansionFraction)
+							0.3f * (lastOverlayExpansionFraction)
 				), label = ""
 			)
-
 
 			val animatedAlignment by animateAlignmentAsState(
 				if (isExpanded) Alignment.Center else Alignment.TopStart,
@@ -308,10 +298,10 @@ fun OverlayLayout(
 
 			val processedScale: () -> Float = {
 				// scale when another overlay is being displayed
-				((1f - nextOverlayExpansionFraction * 0.1f)
+				((1f - lastOverlayExpansionFraction * 0.1f)
 				+
 				// scale with gestures
-				(backGestureProgress * -onSwipeScaleChangeExtent)
+				((gestureProgress / 2) * -onSwipeScaleChangeExtent)
 				// scale back to normal when gestures are completed
 				*
 				animationProgress)
@@ -322,8 +312,17 @@ fun OverlayLayout(
 				if (!isExpanded) initialTargetOffset = originalOffset
 			}
 
-			LaunchedEffect(backGestureOffset, animatedOffset) {
-				useGestureValues = backGestureProgress != 0f && isExpanded
+			// doing this because backGestureProgress is 0f
+			// at launch which means this way useGestureValues
+			// is false at launch
+			LaunchedEffect(gestureOffset, animatedOffset) {
+				useGestureValues = gestureProgress != 0f && isExpanded
+			}
+
+			// to count how much the user has swiped, not where the
+			// finger is on the screen
+			LaunchedEffect(gestureProgress != 0f) {
+				initialGestureOffset = gestureOffset
 			}
 
 			LaunchedEffect(animatedOffset) {
