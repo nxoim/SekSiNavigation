@@ -202,7 +202,7 @@ fun OverlayLayout(
 
 			// there must be a way to calculate animation duration without
 			// hardcoding a number
-			val onSwipeSizeChangeExtent = 0.15f
+			val onSwipeScaleChangeExtent = 0.15f
 			val onSwipeOffsetXChangeExtent = 0.15f
 			val onSwipeOffsetYChangeExtent = 0.1f
 			val onSwipeOffsetYPrevalence = backGestureProgress * 1f
@@ -216,17 +216,6 @@ fun OverlayLayout(
 			var isAnimating by remember { mutableStateOf(true) }
 
 			var useGestureValues by remember { mutableStateOf(false) }
-
-			// all these calculations to tune the animation
-			val sizeExpandedWithSwipeProgress: () -> IntSize = {
-				if (itemState.expandedSize == DpSize.Unspecified) IntSize(
-					(screenSize.width * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt(),
-					(screenSize.height * (1f - backGestureProgress * onSwipeSizeChangeExtent)).toInt()
-				) else IntSize(
-					itemState.expandedSize.width.value.toInt(),
-					itemState.expandedSize.height.value.toInt()
-				)
-			}
 
 			// by default is original offset and becomes a static target
 			// offset once collapse animation starts so that
@@ -256,8 +245,13 @@ fun OverlayLayout(
 			}
 
 			val animatedSize by animateIntSizeAsState(
-				if (isExpanded || useGestureValues) {
-					sizeExpandedWithSwipeProgress()
+				if (isExpanded) {
+					if (itemState.expandedSize == DpSize.Unspecified)
+						screenSize
+					else IntSize(
+						itemState.expandedSize.width.value.toInt(),
+						itemState.expandedSize.height.value.toInt()
+					)
 				} else {
 					originalSize
 				},
@@ -306,18 +300,21 @@ fun OverlayLayout(
 			}
 
 			val processedSize: () -> DpSize = {
-				if (useGestureValues) DpSize(
-					sizeExpandedWithSwipeProgress().width.dp,
-					sizeExpandedWithSwipeProgress().height.dp
-				) else
-					DpSize(
-						animatedSize.width.dp,
-						animatedSize.height.dp
-					)
+				DpSize(
+					animatedSize.width.dp,
+					animatedSize.height.dp
+				)
 			}
 
 			val processedScale: () -> Float = {
-				(1f - nextOverlayExpansionFraction * 0.1f)
+				// scale when another overlay is being displayed
+				((1f - nextOverlayExpansionFraction * 0.1f)
+				+
+				// scale with gestures
+				(backGestureProgress * -onSwipeScaleChangeExtent)
+				// scale back to normal when gestures are completed
+				*
+				animationProgress)
 			}
 
 			LaunchedEffect(isExpanded) {
