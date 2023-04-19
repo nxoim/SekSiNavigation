@@ -181,17 +181,17 @@ fun OverlayLayout(
 			val positionAnimationSpec = if (isExpanded)
 				tween<Offset>(600, 0, easing = EaseOutExpo)
 			else
-				spring(0.97f, 500f)
+				spring(0.9f, 500f)
 
 			val alignmentAnimationSpec: AnimationSpec<Float> = if (isExpanded)
 				tween(600, 0, easing = EaseOutExpo)
 			else
-				spring( 0.97f, 500f)
+				spring( 0.9f, 500f)
 
 			val sizeAnimationSpec = if (isExpanded)
 				tween<IntSize>(600, 0, easing = EaseOutExpo)
 			else
-				spring(0.97f, 500f)
+				spring(0.90f, 600f)
 
 
 			val onSwipeScaleChangeExtent = 0.4f
