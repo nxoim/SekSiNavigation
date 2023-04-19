@@ -402,8 +402,6 @@ fun OverlayLayout(
 							}
 					) {
 						// display content
-						// TODO fix color scheme default colors not being applied
-						// on text and icons
 						state.getItemsContent(key)()
 					}
 				}
