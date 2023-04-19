@@ -29,8 +29,7 @@ fun OverlayItemWrapper(
 	state: OverlayLayoutState,
 	content: @Composable () -> Unit
 ) {
-
-	val isOverlaying by remember { derivedStateOf { state.itemsState[key]?.isOverlaying ?: false } }
+	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
 	// render the content only when item is expanded or has transitioned
@@ -49,7 +48,7 @@ fun OverlayItemWrapper(
 	}
 
 	state.putItem(
-		key.toString(),
+		key,
 		updatedBounds,
 		content,
 		expandedSize
@@ -68,6 +67,6 @@ fun OverlayItemWrapper(
 
 	// pass the overlay originalBounds and position to the state and update the item
 	LaunchedEffect(updatedBounds) {
-		state.setItemsBounds(key.toString(), updatedBounds)
+		state.setItemsBounds(key, updatedBounds)
 	}
 }
