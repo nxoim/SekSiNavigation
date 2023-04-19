@@ -9,10 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 
 
 data class OverlayItemWrapperState(
@@ -26,6 +27,7 @@ data class OverlayItemWrapperState(
 	val scaleFraction: ScaleFraction = ScaleFraction(),
 	val sizeAgainstOriginalAnimationProgress: SizeAgainstOriginalAnimationProgress = SizeAgainstOriginalAnimationProgress(),
 	val expandedSize: DpSize,
+	val originalCornerRadius: Dp,
 )
 
 data class SizeAgainstOriginalAnimationProgress(
@@ -56,7 +58,8 @@ class OverlayLayoutState() {
 		backGestureProgress = 0f,
 		backGestureSwipeEdge = 0,
 		backGestureOffset = Offset.Zero,
-		expandedSize = DpSize.Unspecified
+		expandedSize = DpSize.Unspecified,
+		originalCornerRadius = 0.dp
 	)
 
 	fun addToOverlayStack(key: Any) {
@@ -102,7 +105,8 @@ class OverlayLayoutState() {
 		key: Any,
 		sizeOriginal: Rect,
 		content: @Composable () -> Unit,
-		expandedSize: DpSize
+		expandedSize: DpSize,
+		originalCornerRadius: Dp
 	) {
 		// defaults
 		if (!_itemsState.containsKey(key)) {
@@ -115,7 +119,8 @@ class OverlayLayoutState() {
 					backGestureProgress = 0f,
 					backGestureSwipeEdge = 0,
 					backGestureOffset = Offset.Zero,
-					expandedSize = expandedSize
+					expandedSize = expandedSize,
+					originalCornerRadius = originalCornerRadius
 				)
 			)
 			Log.d(TAG, "$key put into itemState")

@@ -10,6 +10,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.EaseInExpo
+import androidx.compose.animation.core.EaseInQuad
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.animateIntSizeAsState
@@ -22,7 +24,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -33,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -41,10 +47,12 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.max
@@ -307,6 +315,18 @@ fun OverlayLayout(
 				animationProgress)
 			}
 
+			val processedCornerRadius: () -> Dp = {
+				androidx.compose.ui.unit.max(
+					0.dp,
+					// when gestureProgress is 1f - corner radius is 36.dp.
+					// when item is not expanded - gestureProgress doesn't
+					// matter and corner radius is whatever the default has
+					// been set in OverlayItemWrapper's parameters.
+					((36.dp *  gestureProgress) * animationProgress)
+							+ (itemState.originalCornerRadius * (1f - animationProgress))
+				)
+			}
+
 			LaunchedEffect(isExpanded) {
 				// only report this once
 				if (!isExpanded) initialTargetOffset = originalOffset
@@ -328,6 +348,7 @@ fun OverlayLayout(
 			LaunchedEffect(animatedOffset) {
 				// bruh
 				// calculate from the overlays actual location on screen
+				// TODO needs rework
 				animationProgress = ((-(overlayBounds.top - itemState.originalBounds.top) / (itemState.originalBounds.top - Rect.Zero.top)) +  -(overlayBounds.left - itemState.originalBounds.left) / (itemState.originalBounds.left - Rect.Zero.left)) / 2
 				state.setItemsOffsetAnimationProgress(
 					key,
@@ -385,6 +406,7 @@ fun OverlayLayout(
 				) {
 					Box(
 						Modifier
+
 							.offset { processedOffset() }
 							.size(processedSize())
 							.align(animatedAlignment)
@@ -400,6 +422,8 @@ fun OverlayLayout(
 								scaleX = processedScale()
 								scaleY = processedScale()
 							}
+							.clip(RoundedCornerShape(processedCornerRadius()))
+
 					) {
 						// display content
 						state.getItemsContent(key)()
