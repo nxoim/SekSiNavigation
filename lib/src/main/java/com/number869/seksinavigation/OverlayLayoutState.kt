@@ -41,7 +41,7 @@ data class ScaleFraction(
 	val byHeight: Float = 0f
 )
 
-class OverlayLayoutState() {
+class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	// contains the item's state
 	private val _itemsState = mutableStateMapOf<String, OverlayItemWrapperState>()
 	val itemsState get() = _itemsState
@@ -50,6 +50,8 @@ class OverlayLayoutState() {
 	// Define a list to keep track of the IDs of the overlays in the order they were opened
 	private val _overlayStack = mutableStateListOf<String>()
 	val overlayStack get() = _overlayStack
+
+	val overlayDefaultAnimationSpecs  = overlayAnimationSpecs
 
 	val emptyOverlayItemValues = OverlayItemWrapperState(
 		originalBounds = Rect.Zero,
@@ -177,6 +179,8 @@ class OverlayLayoutState() {
 }
 
 @Composable
-fun rememberOverlayLayoutState() = remember {
-	OverlayLayoutState()
+fun rememberOverlayLayoutState(
+	overlayAnimationSpecs: OverlayAnimationSpecs = OverlayLayoutDefaults().overlayDefaultAnimationSpecs()
+) = remember {
+	OverlayLayoutState(overlayAnimationSpecs = overlayAnimationSpecs)
 }

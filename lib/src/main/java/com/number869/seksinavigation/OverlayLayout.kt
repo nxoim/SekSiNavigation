@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,6 +81,8 @@ fun OverlayLayout(
 			firstOverlayKey != null
 		}
 	}
+
+	val overlayAnimationSpecs = state.overlayDefaultAnimationSpecs
 
 	val firstOverlayExpansionFraction by remember{
 		derivedStateOf {
@@ -175,24 +178,23 @@ fun OverlayLayout(
 					)
 				}
 			}
+
 			val gestureSwipeEdge by remember { derivedStateOf { itemState.backGestureSwipeEdge } }
 			val gestureOffset by remember { derivedStateOf { itemState.backGestureOffset } }
 
 			val positionAnimationSpec = if (isExpanded)
-				tween<Offset>(600, 0, easing = EaseOutExpo)
+				overlayAnimationSpecs.positionToExpandedAnimationSpec
 			else
-				spring(0.97f, 500f)
+				overlayAnimationSpecs.positionToCollapsedAnimationSpec
 
 			val alignmentAnimationSpec: AnimationSpec<Float> = if (isExpanded)
-				tween(600, 0, easing = EaseOutExpo)
+				overlayAnimationSpecs.alignmentToExpandedAnimationSpec
 			else
-				spring( 0.97f, 500f)
-
+				overlayAnimationSpecs.alignmentToCollapsedAnimationSpec
 			val sizeAnimationSpec = if (isExpanded)
-				tween<IntSize>(600, 0, easing = EaseOutExpo)
+				overlayAnimationSpecs.sizeToExpandedAnimationSpec
 			else
-				spring(0.97f, 500f)
-
+				overlayAnimationSpecs.sizeToCollapsedAnimationSpec
 
 			val onSwipeScaleChangeExtent = 0.4f
 			val gestureTransformEffectAmount = 0.2f
