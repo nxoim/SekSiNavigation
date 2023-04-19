@@ -9,10 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 
 
 data class OverlayItemWrapperState(
@@ -26,6 +27,7 @@ data class OverlayItemWrapperState(
 	val scaleFraction: ScaleFraction = ScaleFraction(),
 	val sizeAgainstOriginalAnimationProgress: SizeAgainstOriginalAnimationProgress = SizeAgainstOriginalAnimationProgress(),
 	val expandedSize: DpSize,
+	val originalCornerRadius: Dp,
 )
 
 data class SizeAgainstOriginalAnimationProgress(
@@ -56,19 +58,18 @@ class OverlayLayoutState() {
 		backGestureProgress = 0f,
 		backGestureSwipeEdge = 0,
 		backGestureOffset = Offset.Zero,
-		expandedSize = DpSize.Unspecified
+		expandedSize = DpSize.Unspecified,
+		originalCornerRadius = 0.dp
 	)
 
 	fun addToOverlayStack(key: Any) {
-		val keyAsString = key.toString()
-
-		if (_overlayStack.contains(keyAsString)) {
-			Log.d(TAG, "Something is wrong. $keyAsString is already present in _overlayStack.")
+		if (_overlayStack.contains(key.toString())) {
+			Log.d(TAG, "Something is wrong. $key.toString() is already present in _overlayStack.")
 		} else {
-			_overlayStack.add(keyAsString)
+			_overlayStack.add(key.toString())
 			_itemsState.replace(
-				keyAsString,
-				_itemsState[keyAsString]!!.copy(
+				key.toString(),
+				_itemsState[key.toString()]!!.copy(
 					backGestureProgress = 0f,
 					backGestureOffset = Offset.Zero,
 				)
@@ -101,15 +102,16 @@ class OverlayLayoutState() {
 	}
 
 	fun putItem(
-		key: String,
+		key: Any,
 		sizeOriginal: Rect,
 		content: @Composable () -> Unit,
-		expandedSize: DpSize
+		expandedSize: DpSize,
+		originalCornerRadius: Dp
 	) {
 		// defaults
 		if (!_itemsState.containsKey(key)) {
 			_itemsState.putIfAbsent(
-				key,
+				key.toString(),
 				OverlayItemWrapperState(
 					originalBounds = sizeOriginal,
 					isExpanded = false,
@@ -117,7 +119,8 @@ class OverlayLayoutState() {
 					backGestureProgress = 0f,
 					backGestureSwipeEdge = 0,
 					backGestureOffset = Offset.Zero,
-					expandedSize = expandedSize
+					expandedSize = expandedSize,
+					originalCornerRadius = originalCornerRadius
 				)
 			)
 			Log.d(TAG, "$key put into itemState")
@@ -125,51 +128,51 @@ class OverlayLayoutState() {
 
 		if (!itemsContent.containsKey(key)) {
 			itemsContent.putIfAbsent(
-				key,
+				key.toString(),
 				content
 			)
 		}
 	}
 
-	fun setItemsBounds(key: String, newRect: Rect) {
-		_itemsState.replace(key, _itemsState[key]!!.copy(originalBounds = newRect))
+	fun setItemsBounds(key: Any, newRect: Rect) {
+		_itemsState.replace(key.toString(), _itemsState[key.toString()]!!.copy(originalBounds = newRect))
 	}
 
-	fun setItemsOffsetAnimationProgress(key: String, newProgress: Float) {
+	fun setItemsOffsetAnimationProgress(key: Any, newProgress: Float) {
 		_itemsState.replace(
-			key,
-			_itemsState[key]!!.copy(
+			key.toString(),
+			_itemsState[key.toString()]!!.copy(
 				offsetAnimationProgress = newProgress
 			)
 		)
 	}
 
 	@RequiresApi(34)
-	fun updateGestureValues(key: String, backEvent: BackEvent) {
-		_itemsState[key] = itemsState[key]!!.copy(
+	fun updateGestureValues(key: Any, backEvent: BackEvent) {
+		_itemsState[key.toString()] = itemsState[key.toString()]!!.copy(
 			backGestureProgress = backEvent.progress,
 			backGestureSwipeEdge = backEvent.swipeEdge,
 			backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
 		)
 	}
 
-	fun setItemsSizeAgainstOriginalProgress(key: String, newProgress: SizeAgainstOriginalAnimationProgress) {
+	fun setItemsSizeAgainstOriginalProgress(key: Any, newProgress: SizeAgainstOriginalAnimationProgress) {
 		_itemsState.replace(
-			key,
-			_itemsState[key]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
+			key.toString(),
+			_itemsState[key.toString()]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
 		)
 	}
 
-	fun setItemsScaleFraction(key: String, newFraction: ScaleFraction) {
+	fun setItemsScaleFraction(key: Any, newFraction: ScaleFraction) {
 		_itemsState.replace(
-			key,
-			_itemsState[key]!!.copy(scaleFraction = newFraction)
+			key.toString(),
+			_itemsState[key.toString()]!!.copy(scaleFraction = newFraction)
 		)
 	}
 
 	@Composable
-	fun getItemsContent(key: String): @Composable() (() -> Unit) {
-		return if (itemsContent[key] != null) itemsContent[key]!! else { { Text("sdfghjk") } }
+	fun getItemsContent(key: Any): @Composable() (() -> Unit) {
+		return if (itemsContent[key.toString()] != null) itemsContent[key.toString()]!! else { { Text("sdfghjk") } }
 	}
 }
 
