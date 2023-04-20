@@ -445,7 +445,7 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 
 	val scope = rememberCoroutineScope()
 
-	if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake") {
+	if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake") {
 		rememberCoroutineScope().launch {
 			val onBackPressedCallback = @RequiresApi(34) object: OnBackAnimationCallback {
 				override fun onBackInvoked() = state.closeLastOverlay()
