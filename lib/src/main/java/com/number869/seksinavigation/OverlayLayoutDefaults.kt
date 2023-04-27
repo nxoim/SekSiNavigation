@@ -1,4 +1,4 @@
-package com.number869.seksinavigation
+ package com.number869.seksinavigation
 
 import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.SpringSpec
@@ -24,7 +24,7 @@ class OverlayLayoutDefaults {
 		alignmentToExpandedAnimationSpec: TweenSpec<Float> = tween(600, 0, easing = EaseOutExpo),
 		alignmentToCollapsedAnimationSpec: SpringSpec<Float> = spring( 0.9f, 500f),
 		sizeToExpandedAnimationSpec: TweenSpec<IntSize> = tween(600, 0, easing = EaseOutExpo),
-		sizeToCollapsedAnimationSpec: SpringSpec<IntSize> = spring(0.90f, 600f)
+		sizeToCollapsedAnimationSpec: SpringSpec<IntSize> = spring(1f, 600f)
 	) = OverlayAnimationSpecs(
 		positionToExpandedAnimationSpec = positionToExpandedAnimationSpec,
 		positionToCollapsedAnimationSpec = positionToCollapsedAnimationSpec,
