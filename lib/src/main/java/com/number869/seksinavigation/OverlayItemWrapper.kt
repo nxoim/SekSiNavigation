@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 // TODO handle content possibly being null
 @Composable
 fun OverlayItemWrapper(
-	modifierForCollapsed: Modifier = Modifier,
-	expandedSize: DpSize = DpSize.Unspecified,
+	modifierForOriginal: Modifier = Modifier,
+	overlaySize: DpSize = DpSize.Unspecified,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
 	key: Any,
@@ -39,7 +39,7 @@ fun OverlayItemWrapper(
 
 	// render the content only when item is expanded or has transitioned
 	Box(
-		modifierForCollapsed
+		modifierForOriginal
 			.onGloballyPositioned {
 				if (isOriginalItemStatic) {
 					if (!isOverlaying) updatedBounds = it.boundsInWindow()
@@ -57,7 +57,63 @@ fun OverlayItemWrapper(
 		key,
 		updatedBounds,
 		content,
-		expandedSize,
+		overlaySize,
+		originalCornerRadius
+	)
+
+	// TODO fix scale fraction
+//	val widthScaleFraction = state.screenSize.width.toFloat() / updatedBounds.width
+//	val heightScaleFraction = state.screenSize.height.toFloat() / updatedBounds.height
+//
+//	if (state.itemsState[key]?.scaleFraction!!.byWidth == 0f) {
+//		state.setScaleFraction(
+//			key.toString(),
+//			ScaleFraction(widthScaleFraction, heightScaleFraction)
+//		)
+//	}
+
+	// pass the overlay originalBounds and position to the state and update the item
+	LaunchedEffect(updatedBounds) {
+		state.setItemsBounds(key, updatedBounds)
+	}
+}
+
+
+@Composable
+fun OverlayItemWrapper(
+	modifierForOriginal: Modifier = Modifier,
+	originalContent: @Composable () -> Unit,
+	overlayContent: @Composable () -> Unit,
+	overlaySize: DpSize = DpSize.Unspecified,
+	isOriginalItemStatic: Boolean = false,
+	originalCornerRadius: Dp = 0.dp,
+	key: Any,
+	state: OverlayLayoutState
+) {
+	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
+	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
+
+	// render the content only when item is expanded or has transitioned
+	Box(
+		modifierForOriginal
+			.onGloballyPositioned {
+				if (isOriginalItemStatic) {
+					if (!isOverlaying) updatedBounds = it.boundsInWindow()
+				} else {
+					updatedBounds = it.boundsInWindow()
+				}
+			}
+			.clip(RoundedCornerShape(originalCornerRadius))
+			.alpha(if (isOverlaying) 0f else 1f)
+	) {
+		originalContent()
+	}
+
+	state.putItem(
+		key,
+		updatedBounds,
+		overlayContent,
+		overlaySize,
 		originalCornerRadius
 	)
 
