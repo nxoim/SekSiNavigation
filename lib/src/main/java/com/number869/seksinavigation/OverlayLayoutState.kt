@@ -64,19 +64,19 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		originalCornerRadius = 0.dp
 	)
 
-	fun addToOverlayStack(key: Any) {
-		if (_overlayStack.contains(key.toString())) {
-			Log.d(TAG, "Something is wrong. $key.toString() is already present in _overlayStack.")
+	fun addToOverlayStack(route: Any) {
+		if (_overlayStack.contains(route.toString())) {
+			Log.d(TAG, "Something is wrong. $route.toString() is already present in _overlayStack.")
 		} else {
-			_overlayStack.add(key.toString())
+			_overlayStack.add(route.toString())
 			_itemsState.replace(
-				key.toString(),
-				_itemsState[key.toString()]!!.copy(
+				route.toString(),
+				_itemsState[route.toString()]!!.copy(
 					backGestureProgress = 0f,
 					backGestureOffset = Offset.Zero,
 				)
 			)
-			Log.d(TAG, "Added $key to _overlayStack")
+			Log.d(TAG, "Added $route to _overlayStack")
 		}
 	}
 
