@@ -1,6 +1,8 @@
 package com.number869.seksinavigation
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -34,6 +37,8 @@ fun OverlayItemWrapper(
 	state: OverlayLayoutState,
 	content: @Composable () -> Unit
 ) {
+	val density = LocalDensity.current.density
+
 	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
@@ -46,6 +51,12 @@ fun OverlayItemWrapper(
 				} else {
 					updatedBounds = it.boundsInWindow()
 				}
+			}
+			.let {
+				return@let if (isOverlaying && isOriginalItemStatic) it.size(
+					(updatedBounds.size.width / density).dp,
+					(updatedBounds.size.height / density).dp
+				) else it
 			}
 			.clip(RoundedCornerShape(originalCornerRadius))
 			.alpha(if (isOverlaying) 0f else 1f)
@@ -90,6 +101,8 @@ fun OverlayItemWrapper(
 	key: Any,
 	state: OverlayLayoutState
 ) {
+	val density = LocalDensity.current.density
+
 	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
@@ -102,6 +115,12 @@ fun OverlayItemWrapper(
 				} else {
 					updatedBounds = it.boundsInWindow()
 				}
+			}
+			.let {
+				return@let if (isOverlaying && isOriginalItemStatic) it.size(
+					(updatedBounds.size.width / density).dp,
+					(updatedBounds.size.height / density).dp
+				) else it
 			}
 			.clip(RoundedCornerShape(originalCornerRadius))
 			.alpha(if (isOverlaying) 0f else 1f)
