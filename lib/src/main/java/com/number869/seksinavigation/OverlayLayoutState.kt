@@ -1,5 +1,6 @@
 package com.number869.seksinavigation
 
+import android.annotation.SuppressLint
 import android.service.controls.ControlsProviderService.TAG
 import android.util.Log
 import android.window.BackEvent
@@ -18,22 +19,16 @@ import androidx.compose.ui.unit.dp
 
 data class OverlayItemWrapperState(
 	val originalBounds: Rect,
-	var isExpanded: Boolean,
-	var isOverlaying: Boolean,
-	val backGestureProgress: Float,
-	val backGestureSwipeEdge: Int,
-	val backGestureOffset: Offset,
-	val offsetAnimationProgress: Float = 0f,
+	val gestureProgress: Float,
+	val gestureSwipeEdge: Int,
+	val gestureOffset: Offset,
+	val isBeingSwiped: Boolean = false,
 	val scaleFraction: ScaleFraction = ScaleFraction(),
-	val sizeAgainstOriginalAnimationProgress: SizeAgainstOriginalAnimationProgress = SizeAgainstOriginalAnimationProgress(),
+	val offsetAnimationProgress: Float = 0f,
+	val sizeAnimationProgress: Float = 0f,
+	val animationProgress: Float = 0f,
 	val expandedSize: DpSize,
 	val originalCornerRadius: Dp,
-)
-
-data class SizeAgainstOriginalAnimationProgress(
-	val widthProgress: Float = 0f,
-	val heightProgress: Float = 0f,
-	val combinedProgress: Float = 0f
 )
 
 data class ScaleFraction(
@@ -51,32 +46,51 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	private val _overlayStack = mutableStateListOf<String>()
 	val overlayStack get() = _overlayStack
 
+	private val _listOfExpandedOverlays = mutableStateListOf<String>()
+	val listOfExpandedOverlays get() = _listOfExpandedOverlays
+
 	val overlayDefaultAnimationSpecs  = overlayAnimationSpecs
 
 	val emptyOverlayItemValues = OverlayItemWrapperState(
 		originalBounds = Rect.Zero,
-		isExpanded = false,
-		isOverlaying = false,
-		backGestureProgress = 0f,
-		backGestureSwipeEdge = 0,
-		backGestureOffset = Offset.Zero,
+		gestureProgress = 0f,
+		gestureSwipeEdge = 0,
+		gestureOffset = Offset.Zero,
 		expandedSize = DpSize.Unspecified,
 		originalCornerRadius = 0.dp
 	)
 
-	fun addToOverlayStack(key: Any) {
-		if (_overlayStack.contains(key.toString())) {
-			Log.d(TAG, "Something is wrong. $key.toString() is already present in _overlayStack.")
+	fun getIsExpanded(route: Any) = _listOfExpandedOverlays.contains(route.toString())
+	fun getIsOverlaying(route: Any) = _overlayStack.contains(route.toString())
+
+	fun setIsExpandedToTrue(route: Any) {
+		if (!_listOfExpandedOverlays.contains(route.toString())) {
+			_listOfExpandedOverlays.add(route.toString())
+		}
+	}
+
+	@SuppressLint("InlinedApi")
+	fun removeFromOverlayStack(route: Any) {
+		if (_overlayStack.contains(route.toString())) {
+			_overlayStack.remove(route.toString())
 		} else {
-			_overlayStack.add(key.toString())
+			Log.d(TAG, "overlay stack doesnt have $route")
+		}
+	}
+
+	fun addToOverlayStack(route: Any) {
+		if (_overlayStack.contains(route.toString())) {
+			Log.d(TAG, "Something is wrong. $route.toString() is already present in _overlayStack.")
+		} else {
+			_overlayStack.add(route.toString())
 			_itemsState.replace(
-				key.toString(),
-				_itemsState[key.toString()]!!.copy(
-					backGestureProgress = 0f,
-					backGestureOffset = Offset.Zero,
+				route.toString(),
+				_itemsState[route.toString()]!!.copy(
+					gestureProgress = 0f,
+					gestureOffset = Offset.Zero,
 				)
 			)
-			Log.d(TAG, "Added $key to _overlayStack")
+			Log.d(TAG, "Added $route to _overlayStack")
 		}
 	}
 
@@ -85,27 +99,22 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		val lastOverlayId = _overlayStack.lastOrNull()
 
 		if (lastOverlayId != null) {
-			_itemsState.replace(
-				lastOverlayId,
-				_itemsState[lastOverlayId]!!.copy(
-					isExpanded = false,
-					isOverlaying = true
-				)
-			)
+			_listOfExpandedOverlays.removeLastOrNull()
 
 			// the removal happens in the ExpandableItemLayout in a
 			// coroutine after the animation is done
 			Log.d(TAG, "bruh closed" + lastOverlayId)
+			Log.d(TAG, "bruh remaining" + _overlayStack.joinToString("\n"))
 		} else {
 			_overlayStack.clear()
+			_listOfExpandedOverlays.clear()
+			Log.d(TAG, "bruh overlayStack is clear already")
 		}
-
-		Log.d(TAG, "bruh remaining" + _overlayStack.joinToString("\n"))
 	}
 
 	fun putItem(
 		key: Any,
-		sizeOriginal: Rect,
+		originalSize: Rect,
 		content: @Composable () -> Unit,
 		expandedSize: DpSize,
 		originalCornerRadius: Dp
@@ -115,12 +124,10 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			_itemsState.putIfAbsent(
 				key.toString(),
 				OverlayItemWrapperState(
-					originalBounds = sizeOriginal,
-					isExpanded = false,
-					isOverlaying = false,
-					backGestureProgress = 0f,
-					backGestureSwipeEdge = 0,
-					backGestureOffset = Offset.Zero,
+					originalBounds = originalSize,
+					gestureProgress = 0f,
+					gestureSwipeEdge = 0,
+					gestureOffset = Offset.Zero,
 					expandedSize = expandedSize,
 					originalCornerRadius = originalCornerRadius
 				)
@@ -140,6 +147,34 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		_itemsState.replace(key.toString(), _itemsState[key.toString()]!!.copy(originalBounds = newRect))
 	}
 
+	@RequiresApi(34)
+	fun updateGestureValues(key: Any, backEvent: BackEvent) {
+		_itemsState[key.toString()] = itemsState[key.toString()]!!.copy(
+			gestureProgress = backEvent.progress,
+			gestureSwipeEdge = backEvent.swipeEdge,
+			gestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+		)
+	}
+
+	fun setSwipeState(forRoute: Any, isBeingSwiped: Boolean) {
+		_itemsState.replace(
+			forRoute.toString(),
+			_itemsState[forRoute.toString()]!!.copy(
+				isBeingSwiped = isBeingSwiped
+			)
+		)
+
+		if (isBeingSwiped) {
+			_itemsState.replace(
+				forRoute.toString(),
+				_itemsState[forRoute.toString()]!!.copy(
+					gestureProgress = 0f,
+					gestureOffset = Offset.Zero
+				)
+			)
+		}
+	}
+
 	fun setItemsOffsetAnimationProgress(key: Any, newProgress: Float) {
 		_itemsState.replace(
 			key.toString(),
@@ -149,19 +184,21 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		)
 	}
 
-	@RequiresApi(34)
-	fun updateGestureValues(key: Any, backEvent: BackEvent) {
-		_itemsState[key.toString()] = itemsState[key.toString()]!!.copy(
-			backGestureProgress = backEvent.progress,
-			backGestureSwipeEdge = backEvent.swipeEdge,
-			backGestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+	fun setItemsAnimationProgress(key: Any, newProgress: Float) {
+		_itemsState.replace(
+			key.toString(),
+			_itemsState[key.toString()]!!.copy(
+				animationProgress = newProgress
+			)
 		)
 	}
 
-	fun setItemsSizeAgainstOriginalProgress(key: Any, newProgress: SizeAgainstOriginalAnimationProgress) {
+	fun setItemsSizeAnimationProgress(key: Any, newProgress: Float) {
 		_itemsState.replace(
 			key.toString(),
-			_itemsState[key.toString()]!!.copy(sizeAgainstOriginalAnimationProgress = newProgress)
+			_itemsState[key.toString()]!!.copy(
+				sizeAnimationProgress = newProgress
+			)
 		)
 	}
 

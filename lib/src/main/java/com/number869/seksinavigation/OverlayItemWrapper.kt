@@ -1,6 +1,8 @@
 package com.number869.seksinavigation
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -26,26 +29,34 @@ import androidx.compose.ui.unit.dp
 // TODO handle content possibly being null
 @Composable
 fun OverlayItemWrapper(
-	modifierForCollapsed: Modifier = Modifier,
-	expandedSize: DpSize = DpSize.Unspecified,
+	modifierForOriginal: Modifier = Modifier,
+	overlaySize: DpSize = DpSize.Unspecified,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
 	key: Any,
 	state: OverlayLayoutState,
 	content: @Composable () -> Unit
 ) {
-	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
+	val density = LocalDensity.current.density
+
+	val isOverlaying by remember { derivedStateOf { state.getIsOverlaying(key) } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
 	// render the content only when item is expanded or has transitioned
 	Box(
-		modifierForCollapsed
+		modifierForOriginal
 			.onGloballyPositioned {
 				if (isOriginalItemStatic) {
 					if (!isOverlaying) updatedBounds = it.boundsInWindow()
 				} else {
 					updatedBounds = it.boundsInWindow()
 				}
+			}
+			.let {
+				return@let if (isOverlaying && isOriginalItemStatic) it.size(
+					(updatedBounds.size.width / density).dp,
+					(updatedBounds.size.height / density).dp
+				) else it
 			}
 			.clip(RoundedCornerShape(originalCornerRadius))
 			.alpha(if (isOverlaying) 0f else 1f)
@@ -57,7 +68,71 @@ fun OverlayItemWrapper(
 		key,
 		updatedBounds,
 		content,
-		expandedSize,
+		overlaySize,
+		originalCornerRadius
+	)
+
+	// TODO fix scale fraction
+//	val widthScaleFraction = state.screenSize.width.toFloat() / updatedBounds.width
+//	val heightScaleFraction = state.screenSize.height.toFloat() / updatedBounds.height
+//
+//	if (state.itemsState[key]?.scaleFraction!!.byWidth == 0f) {
+//		state.setScaleFraction(
+//			key.toString(),
+//			ScaleFraction(widthScaleFraction, heightScaleFraction)
+//		)
+//	}
+
+	// pass the overlay originalBounds and position to the state and update the item
+	LaunchedEffect(updatedBounds) {
+		state.setItemsBounds(key, updatedBounds)
+	}
+}
+
+
+@Composable
+fun OverlayItemWrapper(
+	modifierForOriginal: Modifier = Modifier,
+	originalContent: @Composable () -> Unit,
+	overlayContent: @Composable () -> Unit,
+	overlaySize: DpSize = DpSize.Unspecified,
+	isOriginalItemStatic: Boolean = false,
+	originalCornerRadius: Dp = 0.dp,
+	key: Any,
+	state: OverlayLayoutState
+) {
+	val density = LocalDensity.current.density
+
+	val isOverlaying by remember { derivedStateOf { state.getIsOverlaying(key) } }
+	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
+
+	// render the content only when item is expanded or has transitioned
+	Box(
+		modifierForOriginal
+			.onGloballyPositioned {
+				if (isOriginalItemStatic) {
+					if (!isOverlaying) updatedBounds = it.boundsInWindow()
+				} else {
+					updatedBounds = it.boundsInWindow()
+				}
+			}
+			.let {
+				return@let if (isOverlaying && isOriginalItemStatic) it.size(
+					(updatedBounds.size.width / density).dp,
+					(updatedBounds.size.height / density).dp
+				) else it
+			}
+			.clip(RoundedCornerShape(originalCornerRadius))
+			.alpha(if (isOverlaying) 0f else 1f)
+	) {
+		originalContent()
+	}
+
+	state.putItem(
+		key,
+		updatedBounds,
+		overlayContent,
+		overlaySize,
 		originalCornerRadius
 	)
 
