@@ -39,7 +39,7 @@ fun OverlayItemWrapper(
 ) {
 	val density = LocalDensity.current.density
 
-	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
+	val isOverlaying by remember { derivedStateOf { state.getIsOverlaying(key) } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
 	// render the content only when item is expanded or has transitioned
@@ -103,7 +103,7 @@ fun OverlayItemWrapper(
 ) {
 	val density = LocalDensity.current.density
 
-	val isOverlaying by remember { derivedStateOf { state.itemsState[key.toString()]?.isOverlaying ?: false } }
+	val isOverlaying by remember { derivedStateOf { state.getIsOverlaying(key) } }
 	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
 
 	// render the content only when item is expanded or has transitioned
