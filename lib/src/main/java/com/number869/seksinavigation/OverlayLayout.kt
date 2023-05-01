@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -126,12 +127,6 @@ fun OverlayLayout(
 		// from its related ExpandableWrapper until expanded
 		state.overlayStack.forEach { key ->
 			val itemState by remember { derivedStateOf { state.itemsState[key]!! } }
-
-			// needed for the animations to start as soon as the
-			// composable is rendered
-			LaunchedEffect(Unit) {
-				state.setIsExpandedToTrue(key)
-			}
 
 			// this one is for the scrim
 			val isOverlayAboveOtherOverlays = lastOverlayKey == key
@@ -267,12 +262,10 @@ fun OverlayLayout(
 			)
 
 			val animatedOffset by animateOffsetAsState(
-				if (isExpanded && !useGestureValues)
-					Offset.Zero
-				else if (!isExpanded)
-					initialTargetOffset
+				if (isExpanded)
+					offsetExpandedWithSwipeProgress()
 				else
-					offsetExpandedWithSwipeProgress(),
+					initialTargetOffset,
 				positionAnimationSpec,
 				label = ""
 			)
@@ -291,17 +284,6 @@ fun OverlayLayout(
 				alignmentAnimationSpec
 			)
 
-			val processedOffset: () -> IntOffset = {
-				if (useGestureValues) IntOffset(
-					offsetExpandedWithSwipeProgress().x.roundToInt(),
-					offsetExpandedWithSwipeProgress().y.roundToInt()
-				) else
-					IntOffset(
-						(animatedOffset.x + offsetDeviationFromTarget.x).roundToInt(),
-						(animatedOffset.y + offsetDeviationFromTarget.y).roundToInt()
-					)
-			}
-
 			val processedSize: () -> DpSize = {
 				DpSize(
 					animatedSize.width.dp,
@@ -309,15 +291,30 @@ fun OverlayLayout(
 				)
 			}
 
+			var processedOffset by remember { mutableStateOf(IntOffset(originalOffset.x.roundToInt(), originalOffset.y.roundToInt())) }
+
+			LaunchedEffect(offsetExpandedWithSwipeProgress(), animatedOffset) {
+				processedOffset =
+					if (useGestureValues) IntOffset(
+						offsetExpandedWithSwipeProgress().x.roundToInt(),
+						offsetExpandedWithSwipeProgress().y.roundToInt()
+					) else
+						IntOffset(
+							((animatedOffset.x) + offsetDeviationFromTarget.x).roundToInt(),
+							((animatedOffset.y) + offsetDeviationFromTarget.y).roundToInt()
+						)
+			}
+
 			val processedScale: () -> Float = {
-				// scale when another overlay is being displayed
-				((1f - lastOverlayExpansionFraction * 0.1f)
-				+
-				// scale with gestures
-				((gestureProgress / 2) * -onSwipeScaleChangeExtent)
-				// scale back to normal when gestures are completed
-				*
-				animationProgress)
+				 (		// scale when another overlay is being displayed
+						(1f - lastOverlayExpansionFraction * 0.1f)
+								+
+								// scale with gestures
+								((gestureProgress / 2) * -onSwipeScaleChangeExtent)
+								// scale back to normal when gestures are completed
+								*
+								animationProgress
+						)
 			}
 
 			val processedCornerRadius: () -> Dp = {
@@ -339,8 +336,14 @@ fun OverlayLayout(
 
 			// to count how much the user has swiped, not where the
 			// finger is on the screen
-			LaunchedEffect(gestureOffset != Offset.Zero) {
+			LaunchedEffect(gestureProgress < 0.01f) {
 				initialGestureOffset = gestureOffset
+			}
+
+			// needed for the animations to start as soon as the
+			// composable is rendered
+			LaunchedEffect(Unit) {
+				state.setIsExpandedToTrue(key)
 			}
 
 			// i dont remember why i thought this was needed
@@ -363,6 +366,7 @@ fun OverlayLayout(
 				if (!isExpanded && animationProgress == 0f) {
 					// TODO handle composables flying across the screen
 					// when back is invoked quickly and many times
+					delay(50)
 					state.removeFromOverlayStack(key)
 				}
 
@@ -387,9 +391,9 @@ fun OverlayLayout(
 			) {
 				Box(
 					Modifier
-						.offset { processedOffset() }
-						.size(processedSize())
+						.offset { processedOffset }
 						.align(animatedAlignment)
+						.size(processedSize())
 						.clickable(
 							indication = null,
 							interactionSource = remember { MutableInteractionSource() }

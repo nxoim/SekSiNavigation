@@ -1,6 +1,12 @@
  package com.number869.seksinavigation
 
+import androidx.compose.animation.core.EaseInCubic
+import androidx.compose.animation.core.EaseInOutQuart
+import androidx.compose.animation.core.EaseOutCirc
 import androidx.compose.animation.core.EaseOutExpo
+import androidx.compose.animation.core.EaseOutQuad
+import androidx.compose.animation.core.EaseOutQuart
+import androidx.compose.animation.core.EaseOutQuint
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.spring
@@ -19,12 +25,12 @@ data class OverlayAnimationSpecs(
 
 class OverlayLayoutDefaults {
 	fun overlayDefaultAnimationSpecs(
-		positionToExpandedAnimationSpec: TweenSpec<Offset> = tween(600, 0, easing = EaseOutExpo),
-		positionToCollapsedAnimationSpec: SpringSpec<Offset> = spring(0.9f, 500f),
-		alignmentToExpandedAnimationSpec: TweenSpec<Float> = tween(600, 0, easing = EaseOutExpo),
-		alignmentToCollapsedAnimationSpec: SpringSpec<Float> = spring( 0.9f, 500f),
-		sizeToExpandedAnimationSpec: TweenSpec<IntSize> = tween(600, 0, easing = EaseOutExpo),
-		sizeToCollapsedAnimationSpec: SpringSpec<IntSize> = spring(1f, 600f)
+		positionToExpandedAnimationSpec: TweenSpec<Offset> = tween(600, 0, easing = EaseOutQuint),
+		positionToCollapsedAnimationSpec: SpringSpec<Offset> = spring(0.93f, 500f),
+		alignmentToExpandedAnimationSpec: TweenSpec<Float> = tween(200, 0, easing = EaseOutQuint),
+		alignmentToCollapsedAnimationSpec: SpringSpec<Float> = spring( 0.93f, 500f),
+		sizeToExpandedAnimationSpec: TweenSpec<IntSize> = tween(200, 0, easing = EaseOutExpo),
+		sizeToCollapsedAnimationSpec: SpringSpec<IntSize> = spring(0.93f, 300f)
 	) = OverlayAnimationSpecs(
 		positionToExpandedAnimationSpec = positionToExpandedAnimationSpec,
 		positionToCollapsedAnimationSpec = positionToCollapsedAnimationSpec,
