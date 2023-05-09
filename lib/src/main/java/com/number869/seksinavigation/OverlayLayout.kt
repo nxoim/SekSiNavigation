@@ -10,7 +10,10 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.EaseInCirc
+import androidx.compose.animation.core.EaseInExpo
 import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
@@ -34,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -126,12 +130,12 @@ fun OverlayLayout(
 
 		// display the overlayed composables with the position and size
 		// from its related ExpandableWrapper until expanded
-		state.overlayStack.forEach { key ->
+		state.overlayStack.forEach { overlayKey ->
 			Box {
-				val itemState by remember { derivedStateOf { state.itemsState[key]!! } }
+				val itemState by remember { derivedStateOf { state.itemsState[overlayKey]!! } }
 
 				// this one is for the scrim
-				val isOverlayAboveOtherOverlays = lastOverlayKey == key
+				val isOverlayAboveOtherOverlays = lastOverlayKey == overlayKey
 
 				val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
 					0f
@@ -139,7 +143,7 @@ fun OverlayLayout(
 					state.itemsState[lastOverlayKey]?.animationProgress ?: 0f
 				}
 
-				val isExpanded by remember{ derivedStateOf { state.getIsExpanded(key) } }
+				val isExpanded by remember{ derivedStateOf { state.getIsExpanded(overlayKey) } }
 				val originalSize by remember{
 					derivedStateOf {
 						IntSize(
@@ -344,23 +348,23 @@ fun OverlayLayout(
 				// needed for the animations to start as soon as the
 				// composable is rendered
 				LaunchedEffect(Unit) {
-					state.setIsExpandedToTrue(key)
+					state.setIsExpandedToTrue(overlayKey)
 				}
 
 				// i dont remember why i thought this was needed
 				LaunchedEffect(animationProgress) {
 					state.setItemsOffsetAnimationProgress(
-						key,
+						overlayKey,
 						offsetAnimationProgress
 					)
 
 					state.setItemsSizeAnimationProgress(
-						key,
+						overlayKey,
 						sizeAnimationProgress
 					)
 
 					state.setItemsAnimationProgress(
-						key,
+						overlayKey,
 						animationProgress
 					)
 
@@ -368,7 +372,7 @@ fun OverlayLayout(
 						// TODO handle composables flying across the screen
 						// when back is invoked quickly and many times
 						delay(200)
-						state.removeFromOverlayStack(key)
+						state.removeFromOverlayStack(overlayKey)
 					}
 
 					// TODO fix scale fraction
@@ -390,6 +394,10 @@ fun OverlayLayout(
 							drawRect(animatedScrim)
 						}
 				) {
+					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+						state.getScreenBehindAnItem(overlayKey)()
+					}
+
 					Box(
 						Modifier
 							.offset { processedOffset }
@@ -408,7 +416,7 @@ fun OverlayLayout(
 							.clip(RoundedCornerShape(processedCornerRadius()))
 					) {
 						// display content
-						state.getItemsContent(key)()
+						state.getItemsContent(overlayKey)()
 					}
 				}
 			}

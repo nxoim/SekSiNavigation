@@ -1,6 +1,5 @@
 package com.number869.seksinavigation
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +34,7 @@ fun OverlayItemWrapper(
 	originalCornerRadius: Dp = 0.dp,
 	key: Any,
 	state: OverlayLayoutState,
+	screenBehindContent: @Composable () -> Unit = { Box{ } },
 	content: @Composable () -> Unit
 ) {
 	val density = LocalDensity.current.density
@@ -67,6 +67,7 @@ fun OverlayItemWrapper(
 	state.putItem(
 		key,
 		updatedBounds,
+		screenBehindContent,
 		content,
 		overlaySize,
 		originalCornerRadius
@@ -95,6 +96,7 @@ fun OverlayItemWrapper(
 	modifierForOriginal: Modifier = Modifier,
 	originalContent: @Composable () -> Unit,
 	overlayContent: @Composable () -> Unit,
+	screenBehindContent: @Composable () -> Unit = { Box{ } },
 	overlaySize: DpSize = DpSize.Unspecified,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
@@ -131,6 +133,7 @@ fun OverlayItemWrapper(
 	state.putItem(
 		key,
 		updatedBounds,
+		screenBehindContent,
 		overlayContent,
 		overlaySize,
 		originalCornerRadius
