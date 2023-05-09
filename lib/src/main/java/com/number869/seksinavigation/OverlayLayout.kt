@@ -434,10 +434,9 @@ fun OverlayLayout(
 
 @SuppressLint("CoroutineCreationDuringComposition", "ComposableNaming")
 @Composable
-fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
-	val firstOverlayKey by remember { derivedStateOf { state.overlayStack.firstOrNull() } }
+private fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
-	val isOverlaying by remember { derivedStateOf { firstOverlayKey != null } }
+	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.size != 0 } }
 
 	val scope = rememberCoroutineScope()
 
@@ -476,7 +475,7 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 			}
 
 			// why doesnt his work TODO
-			if (isOverlaying)  {
+			if (isAnyOverlayExpanded)  {
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
 					thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
 						OnBackInvokedDispatcher.PRIORITY_OVERLAY,
@@ -490,6 +489,6 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 			}
 		}
 	} else {
-		BackHandler(isOverlaying) { state.closeLastOverlay() }
+		BackHandler(isAnyOverlayExpanded) { state.closeLastOverlay() }
 	}
 }
