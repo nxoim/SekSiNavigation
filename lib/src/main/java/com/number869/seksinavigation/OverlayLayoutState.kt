@@ -5,6 +5,7 @@ import android.service.controls.ControlsProviderService.TAG
 import android.util.Log
 import android.window.BackEvent
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
@@ -24,6 +25,10 @@ data class OverlayItemWrapperState(
 	val gestureOffset: Offset,
 	val isBeingSwiped: Boolean = false,
 	val scaleFraction: ScaleFraction = ScaleFraction(),
+	// progress values will sometimes be less than 0f and that might cause
+	// crashes if you use them in Color or padding animations.
+	// use something like val progress = max(0f, aProgress) to prevent
+	// the potential crash
 	val offsetAnimationProgress: Float = 0f,
 	val sizeAnimationProgress: Float = 0f,
 	val animationProgress: Float = 0f,
@@ -42,6 +47,8 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	val itemsState get() = _itemsState
 	// contains the item's content
 	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
+	private val screensBehindItems = mutableStateMapOf<String, @Composable () -> Unit>()
+
 	// Define a list to keep track of the IDs of the overlays in the order they were opened
 	private val _overlayStack = mutableStateListOf<String>()
 	val overlayStack get() = _overlayStack
@@ -115,6 +122,7 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	fun putItem(
 		key: Any,
 		originalSize: Rect,
+		screenBehindContent: @Composable () -> Unit,
 		content: @Composable () -> Unit,
 		expandedSize: DpSize,
 		originalCornerRadius: Dp
@@ -139,6 +147,11 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			itemsContent.putIfAbsent(
 				key.toString(),
 				content
+			)
+
+			screensBehindItems.putIfAbsent(
+				key.toString(),
+				screenBehindContent
 			)
 		}
 	}
@@ -207,6 +220,11 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			key.toString(),
 			_itemsState[key.toString()]!!.copy(scaleFraction = newFraction)
 		)
+	}
+
+	@Composable
+	fun getScreenBehindAnItem(key: Any): @Composable() (() -> Unit) {
+		return if (screensBehindItems[key.toString()] != null) screensBehindItems[key.toString()]!! else { { Box { } } }
 	}
 
 	@Composable

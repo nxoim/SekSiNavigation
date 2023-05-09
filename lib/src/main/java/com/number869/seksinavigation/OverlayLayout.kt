@@ -10,7 +10,10 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.EaseInCirc
+import androidx.compose.animation.core.EaseInExpo
 import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
@@ -34,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -47,6 +51,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.lang.Float.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -91,7 +96,7 @@ fun OverlayLayout(
 				if(state.listOfExpandedOverlays.contains(firstOverlayKey))
 					0.3f
 				else
-					0.3f * (firstOverlayExpansionFraction)
+					0.3f * max(0f, firstOverlayExpansionFraction)
 		),
 		label = ""
 	)
@@ -125,252 +130,252 @@ fun OverlayLayout(
 
 		// display the overlayed composables with the position and size
 		// from its related ExpandableWrapper until expanded
-		state.overlayStack.forEach { key ->
-			val itemState by remember { derivedStateOf { state.itemsState[key]!! } }
+		state.overlayStack.forEach { overlayKey ->
+			Box {
+				val itemState by remember { derivedStateOf { state.itemsState[overlayKey]!! } }
 
-			// this one is for the scrim
-			val isOverlayAboveOtherOverlays = lastOverlayKey == key
+				// this one is for the scrim
+				val isOverlayAboveOtherOverlays = lastOverlayKey == overlayKey
 
-			val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
-				0f
-			} else {
-				state.itemsState[lastOverlayKey]?.animationProgress ?: 0f
-			}
-
-			val isExpanded by remember{ derivedStateOf { state.getIsExpanded(key) } }
-			val originalSize by remember{
-				derivedStateOf {
-					IntSize(
-						(itemState.originalBounds.size.width / density).toInt(),
-						(itemState.originalBounds.size.height / density).toInt()
-					)
-				}
-			}
-			val originalOffset by remember{ derivedStateOf { itemState.originalBounds.topLeft  } }
-
-			val gestureProgress by remember{
-				derivedStateOf {
-					EaseOutCubic.transform(
-						itemState.gestureProgress
-					)
-				}
-			}
-
-			val gestureSwipeEdge by remember { derivedStateOf { itemState.gestureSwipeEdge } }
-			val gestureOffset by remember { derivedStateOf { itemState.gestureOffset } }
-
-			val positionAnimationSpec = if (isExpanded)
-				overlayAnimationSpecs.positionToExpandedAnimationSpec
-			else
-				overlayAnimationSpecs.positionToCollapsedAnimationSpec
-
-			val alignmentAnimationSpec: AnimationSpec<Float> = if (isExpanded)
-				overlayAnimationSpecs.alignmentToExpandedAnimationSpec
-			else
-				overlayAnimationSpecs.alignmentToCollapsedAnimationSpec
-			val sizeAnimationSpec = if (isExpanded)
-				overlayAnimationSpecs.sizeToExpandedAnimationSpec
-			else
-				overlayAnimationSpecs.sizeToCollapsedAnimationSpec
-
-			val onSwipeScaleChangeExtent = 0.4f
-			val gestureTransformEffectAmount = 0.2f
-
-			// the higher the number above is - the earlier the gesture will
-			// fully depend the vertical swipe offset
-
-			// interpolates from 0 to 1 over the specified duration
-			// into "animationProgress"
-			val offsetAnimationProgress by animateFloatAsState(
-				if (isExpanded) 1f else 0f,
-				animationSpec = if (isExpanded) tween(
-					durationMillis = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.durationMillis,
-					easing = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.easing
-				) else spring(
-					state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.dampingRatio,
-					state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.stiffness
-				),
-				label = ""
-			)
-			val sizeAnimationProgress by animateFloatAsState(
-				if (isExpanded) 1f else 0f,
-				animationSpec = if (isExpanded) tween(
-					durationMillis = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.durationMillis,
-					easing = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.easing
-				) else spring(
-					state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.dampingRatio,
-					state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.stiffness
-				),
-				label = ""
-			)
-
-			val animationProgress = (offsetAnimationProgress + sizeAnimationProgress) * 0.5f
-			val useGestureValues by remember { derivedStateOf { itemState.isBeingSwiped } }
-
-			// by default is original offset and becomes a static target
-			//	for the animation once isExpanded is false so that
-			// distance of the swipe gesture can be calculated. this is
-			// needed for the whole animation to move with the content as
-			// soon as the finger moves. the alternative, simple use of
-			// animate*AsState, would bring a lot of input latency
-			var initialTargetOffset by remember { mutableStateOf(originalOffset) }
-
-			// used to calculate how much the user swiped across the
-			// screen in Dp
-			var initialGestureOffset by remember { mutableStateOf(Offset.Zero) }
-
-			val offsetDeviationFromTarget = if (isExpanded)
-				Offset.Zero
-			else
-				Offset(
-				(originalOffset.x - initialTargetOffset.x),
-				(originalOffset.y - initialTargetOffset.y)
-			)
-
-			val gestureDistanceFromStartingPoint = Offset (
-				gestureOffset.x - initialGestureOffset.x,
-				gestureOffset.y - initialGestureOffset.y
-			)
-
-			val offsetExpandedWithSwipeProgress: () -> Offset = {
-				Offset(
-					if (gestureSwipeEdge == 0)
-					// if swipe is from the left side
-						((screenSize.width * gestureTransformEffectAmount) * gestureProgress)
-					else
-					// if swipe is from the right side
-						(-(screenSize.width * gestureTransformEffectAmount) * gestureProgress),
-					(gestureDistanceFromStartingPoint.y * gestureTransformEffectAmount)  * min(gestureProgress * 2f, 1f)
-					// we use min(gestureProgress * 2f, 1f) above to mask
-					// offset not being set properly in the first milliseconds lmao
-				)
-			}
-
-			val animatedSize by animateIntSizeAsState(
-				if (isExpanded) {
-					if (itemState.expandedSize == DpSize.Unspecified)
-						screenSize
-					else IntSize(
-						itemState.expandedSize.width.value.toInt(),
-						itemState.expandedSize.height.value.toInt()
-					)
+				val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
+					0f
 				} else {
-					originalSize
-				},
-				sizeAnimationSpec,
-				label = ""
-			)
+					state.itemsState[lastOverlayKey]?.animationProgress ?: 0f
+				}
 
-			val animatedOffset by animateOffsetAsState(
-				if (isExpanded)
-					offsetExpandedWithSwipeProgress()
+				val isExpanded by remember{ derivedStateOf { state.getIsExpanded(overlayKey) } }
+				val originalSize by remember{
+					derivedStateOf {
+						IntSize(
+							(itemState.originalBounds.size.width / density).toInt(),
+							(itemState.originalBounds.size.height / density).toInt()
+						)
+					}
+				}
+				val originalOffset by remember{ derivedStateOf { itemState.originalBounds.topLeft  } }
+
+				val gestureProgress by remember{
+					derivedStateOf {
+						EaseOutCubic.transform(
+							itemState.gestureProgress
+						)
+					}
+				}
+
+				val gestureSwipeEdge by remember { derivedStateOf { itemState.gestureSwipeEdge } }
+				val gestureOffset by remember { derivedStateOf { itemState.gestureOffset } }
+
+				val positionAnimationSpec = if (isExpanded)
+					overlayAnimationSpecs.positionToExpandedAnimationSpec
 				else
-					initialTargetOffset,
-				positionAnimationSpec,
-				label = ""
-			)
+					overlayAnimationSpecs.positionToCollapsedAnimationSpec
 
-			val animatedScrim by animateColorAsState(
-				MaterialTheme.colorScheme.scrim.copy(
-					if (isExpanded && isOverlayAboveOtherOverlays)
-						0f
-					else
-						0.3f * (lastOverlayExpansionFraction)
-				), label = ""
-			)
+				val sizeAnimationSpec = if (isExpanded)
+					overlayAnimationSpecs.sizeToExpandedAnimationSpec
+				else
+					overlayAnimationSpecs.sizeToCollapsedAnimationSpec
 
-			val animatedAlignment by animateAlignmentAsState(
-				if (isExpanded) Alignment.Center else Alignment.TopStart,
-				alignmentAnimationSpec
-			)
 
-			val processedSize: () -> DpSize = {
-				DpSize(
-					animatedSize.width.dp,
-					animatedSize.height.dp
+				val onSwipeScaleChangeExtent = 0.4f
+				val gestureTransformEffectAmount = 0.2f
+
+				// the higher the number above is - the earlier the gesture will
+				// fully depend the vertical swipe offset
+
+				// interpolates from 0 to 1 over the specified duration
+				// into "animationProgress"
+				val offsetAnimationProgress by animateFloatAsState(
+					if (isExpanded) 1f else 0f,
+					animationSpec = if (isExpanded) tween(
+						durationMillis = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.durationMillis,
+						easing = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.easing
+					) else spring(
+						state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.dampingRatio,
+						state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.stiffness
+					),
+					label = ""
 				)
-			}
+				val sizeAnimationProgress by animateFloatAsState(
+					if (isExpanded) 1f else 0f,
+					animationSpec = if (isExpanded) tween(
+						durationMillis = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.durationMillis,
+						delayMillis = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.delay,
+						easing = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.easing
+					) else tween(
+						durationMillis = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.durationMillis,
+						delayMillis = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.delay,
+						easing = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.easing
+					),
+					label = ""
+				)
 
-			var processedOffset by remember { mutableStateOf(IntOffset(originalOffset.x.roundToInt(), originalOffset.y.roundToInt())) }
+				val animationProgress = (offsetAnimationProgress + sizeAnimationProgress) * 0.5f
+				val useGestureValues by remember { derivedStateOf { itemState.isBeingSwiped } }
 
-			LaunchedEffect(offsetExpandedWithSwipeProgress(), animatedOffset) {
-				processedOffset =
-					if (useGestureValues) IntOffset(
+				// by default is original offset and becomes a static target
+				//	for the animation once isExpanded is false so that
+				// distance of the swipe gesture can be calculated. this is
+				// needed for the whole animation to move with the content as
+				// soon as the finger moves. the alternative, simple use of
+				// animate*AsState, would bring a lot of input latency
+				var initialTargetOffset by remember { mutableStateOf(originalOffset) }
+
+				// used to calculate how much the user swiped across the
+				// screen in Dp
+				var initialGestureOffset by remember { mutableStateOf(Offset.Zero) }
+
+				val offsetDeviationFromTarget = if (isExpanded)
+					Offset.Zero
+				else
+					Offset(
+						(originalOffset.x - initialTargetOffset.x),
+						(originalOffset.y - initialTargetOffset.y)
+					)
+
+				val gestureDistanceFromStartingPoint = Offset (
+					gestureOffset.x - initialGestureOffset.x,
+					gestureOffset.y - initialGestureOffset.y
+				)
+
+				val animatedSize by animateIntSizeAsState(
+					if (isExpanded) {
+						if (itemState.expandedSize == DpSize.Unspecified)
+							screenSize
+						else IntSize(
+							itemState.expandedSize.width.value.toInt(),
+							itemState.expandedSize.height.value.toInt()
+						)
+					} else {
+						originalSize
+					},
+					sizeAnimationSpec,
+					label = ""
+				)
+
+				val calculatedCenterOffset: () -> Offset = {
+					Offset(
+						((screenSize.width - animatedSize.width) * 0.5f) * density,
+						((screenSize.height - animatedSize.height) * 0.5f) * density
+					)
+				}
+
+				val offsetExpandedWithSwipeProgress: () -> Offset = {
+					Offset(
+						x = if (gestureSwipeEdge == 0)
+						// if swipe is from the left side
+							calculatedCenterOffset().x + ((screenSize.width * gestureTransformEffectAmount) * gestureProgress)
+						else
+						// if swipe is from the right side
+							calculatedCenterOffset().x + (-(screenSize.width * gestureTransformEffectAmount) * gestureProgress),
+						y = calculatedCenterOffset().y + ((gestureDistanceFromStartingPoint.y * (gestureTransformEffectAmount * 1.35f))  * min(gestureProgress * 2f, 1f))
+						// we use min(gestureProgress * 2f, 1f) above to mask
+						// offset not being set properly in the first milliseconds lmao
+					)
+				}
+
+				val animatedOffset by animateOffsetAsState(
+					if (isExpanded)
+						offsetExpandedWithSwipeProgress()
+					else
+						initialTargetOffset,
+					positionAnimationSpec,
+					label = ""
+				)
+
+				val animatedScrim by animateColorAsState(
+					MaterialTheme.colorScheme.scrim.copy(
+						if (isExpanded && isOverlayAboveOtherOverlays)
+							0f
+						else
+							0.3f * max(0f, lastOverlayExpansionFraction)
+					), label = ""
+				)
+
+				val processedSize: () -> DpSize = {
+					DpSize(
+						animatedSize.width.dp,
+						animatedSize.height.dp
+					)
+				}
+
+				val processedOffset = if (useGestureValues)
+					IntOffset(
 						offsetExpandedWithSwipeProgress().x.roundToInt(),
 						offsetExpandedWithSwipeProgress().y.roundToInt()
-					) else
-						IntOffset(
-							((animatedOffset.x) + offsetDeviationFromTarget.x).roundToInt(),
-							((animatedOffset.y) + offsetDeviationFromTarget.y).roundToInt()
-						)
-			}
+					)
+				else
+					IntOffset(
+						((animatedOffset.x) + offsetDeviationFromTarget.x).roundToInt(),
+						((animatedOffset.y) + offsetDeviationFromTarget.y).roundToInt()
+					)
 
-			val processedScale: () -> Float = {
-				 (		// scale when another overlay is being displayed
-						(1f - lastOverlayExpansionFraction * 0.1f)
-								+
-								// scale with gestures
-								((gestureProgress / 2) * -onSwipeScaleChangeExtent)
-								// scale back to normal when gestures are completed
-								*
-								animationProgress
-						)
-			}
 
-			val processedCornerRadius: () -> Dp = {
-				androidx.compose.ui.unit.max(
-					0.dp,
-					// when gestureProgress is 1f - corner radius is 36.dp.
-					// when item is not expanded - gestureProgress doesn't
-					// matter and corner radius is whatever the default has
-					// been set in OverlayItemWrapper's parameters.
-					((36.dp *  gestureProgress) * animationProgress)
-							+ (itemState.originalCornerRadius * (1f - animationProgress))
-				)
-			}
-
-			LaunchedEffect(isExpanded) {
-				// only report this once
-				if (!isExpanded) initialTargetOffset = originalOffset
-			}
-
-			// to count how much the user has swiped, not where the
-			// finger is on the screen
-			LaunchedEffect(gestureProgress < 0.01f) {
-				initialGestureOffset = gestureOffset
-			}
-
-			// needed for the animations to start as soon as the
-			// composable is rendered
-			LaunchedEffect(Unit) {
-				state.setIsExpandedToTrue(key)
-			}
-
-			// i dont remember why i thought this was needed
-			LaunchedEffect(animationProgress) {
-				state.setItemsOffsetAnimationProgress(
-					key,
-					offsetAnimationProgress
-				)
-
-				state.setItemsSizeAnimationProgress(
-					key,
-					sizeAnimationProgress
-				)
-
-				state.setItemsAnimationProgress(
-					key,
-					animationProgress
-				)
-
-				if (!isExpanded && animationProgress == 0f) {
-					// TODO handle composables flying across the screen
-					// when back is invoked quickly and many times
-					delay(50)
-					state.removeFromOverlayStack(key)
+				val processedScale: () -> Float = {
+					(		// scale when another overlay is being displayed
+							(1f - lastOverlayExpansionFraction * 0.1f)
+									+
+									// scale with gestures
+									((gestureProgress / 2) * -onSwipeScaleChangeExtent)
+									// scale back to normal when gestures are completed
+									*
+									sizeAnimationProgress
+							)
 				}
 
-				// TODO fix scale fraction
+				val processedCornerRadius: () -> Dp = {
+					androidx.compose.ui.unit.max(
+						0.dp,
+						// when gestureProgress is 1f - corner radius is 36.dp.
+						// when item is not expanded - gestureProgress doesn't
+						// matter and corner radius is whatever the default has
+						// been set in OverlayItemWrapper's parameters.
+						((36.dp *  gestureProgress) * animationProgress)
+								+ (itemState.originalCornerRadius * (1f - animationProgress))
+					)
+				}
+
+				LaunchedEffect(isExpanded) {
+					// only report this once
+					if (!isExpanded) initialTargetOffset = originalOffset
+				}
+
+				// to count how much the user has swiped, not where the
+				// finger is on the screen
+				LaunchedEffect(gestureProgress < 0.01f) {
+					initialGestureOffset = gestureOffset
+				}
+
+				// needed for the animations to start as soon as the
+				// composable is rendered
+				LaunchedEffect(Unit) {
+					state.setIsExpandedToTrue(overlayKey)
+				}
+
+				// i dont remember why i thought this was needed
+				LaunchedEffect(animationProgress) {
+					state.setItemsOffsetAnimationProgress(
+						overlayKey,
+						offsetAnimationProgress
+					)
+
+					state.setItemsSizeAnimationProgress(
+						overlayKey,
+						sizeAnimationProgress
+					)
+
+					state.setItemsAnimationProgress(
+						overlayKey,
+						animationProgress
+					)
+
+					if (!isExpanded && animationProgress == 0f) {
+						// TODO handle composables flying across the screen
+						// when back is invoked quickly and many times
+						delay(200)
+						state.removeFromOverlayStack(overlayKey)
+					}
+
+					// TODO fix scale fraction
 //				val widthScaleFraction = animatedSize.width / screenSize.width.toFloat()
 //				val heightScaleFraction = animatedSize.height / screenSize.height.toFloat()
 //
@@ -378,37 +383,41 @@ fun OverlayLayout(
 //					key,
 //					ScaleFraction(widthScaleFraction, heightScaleFraction)
 //				)
-			}
+				}
 
-			Box(
-				Modifier
-					// full screen scrim and then draw content
-					.fillMaxSize()
-					.drawWithContent {
-						drawContent()
-						drawRect(animatedScrim)
-					}
-			) {
 				Box(
 					Modifier
-						.offset { processedOffset }
-						.align(animatedAlignment)
-						.size(processedSize())
-						.clickable(
-							indication = null,
-							interactionSource = remember { MutableInteractionSource() }
-						) {
-							// workaround that fixes elements being clickable
-							// under the overlay
+						// full screen scrim and then draw content
+						.fillMaxSize()
+						.drawWithContent {
+							drawContent()
+							drawRect(animatedScrim)
 						}
-						.graphicsLayer {
-							scaleX = processedScale()
-							scaleY = processedScale()
-						}
-						.clip(RoundedCornerShape(processedCornerRadius()))
 				) {
-					// display content
-					state.getItemsContent(key)()
+					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+						state.getScreenBehindAnItem(overlayKey)()
+					}
+
+					Box(
+						Modifier
+							.offset { processedOffset }
+							.size(processedSize())
+							.clickable(
+								indication = null,
+								interactionSource = remember { MutableInteractionSource() }
+							) {
+								// workaround that fixes elements being clickable
+								// under the overlay
+							}
+							.graphicsLayer {
+								scaleX = processedScale()
+								scaleY = processedScale()
+							}
+							.clip(RoundedCornerShape(processedCornerRadius()))
+					) {
+						// display content
+						state.getItemsContent(overlayKey)()
+					}
 				}
 			}
 		}
