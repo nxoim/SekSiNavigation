@@ -418,6 +418,10 @@ fun OverlayLayout(
 						// display content
 						state.getItemsContent(overlayKey)()
 					}
+
+					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+						state.getScreenAboveAnItem(overlayKey)()
+					}
 				}
 			}
 		}
