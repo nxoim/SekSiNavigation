@@ -9,11 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.EaseInCirc
-import androidx.compose.animation.core.EaseInExpo
 import androidx.compose.animation.core.EaseOutCubic
-import androidx.compose.animation.core.EaseOutExpo
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
@@ -35,7 +32,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -86,7 +82,9 @@ fun OverlayLayout(
 		}
 	}
 
-	handleBackGesture(state, thisOfActivity)
+	if (firstOverlayKey != null) {
+		handleBackGesture(state, thisOfActivity)
+	}
 
 	val nonOverlayScrimColor by animateColorAsState(
 		MaterialTheme.colorScheme.scrim.copy(
@@ -212,6 +210,9 @@ fun OverlayLayout(
 				val animationProgress = (offsetAnimationProgress + sizeAnimationProgress) * 0.5f
 				val useGestureValues by remember { derivedStateOf { itemState.isBeingSwiped } }
 
+				var isOffsetCollapseAnimationDone by remember { mutableStateOf(false) }
+				var isSizeCollapseAnimationDone by remember { mutableStateOf(false) }
+
 				// by default is original offset and becomes a static target
 				//	for the animation once isExpanded is false so that
 				// distance of the swipe gesture can be calculated. this is
@@ -249,7 +250,8 @@ fun OverlayLayout(
 						originalSize
 					},
 					sizeAnimationSpec,
-					label = ""
+					label = "",
+					finishedListener = { if (!isExpanded) isSizeCollapseAnimationDone = true }
 				)
 
 				val calculatedCenterOffset: () -> Offset = {
@@ -279,7 +281,8 @@ fun OverlayLayout(
 					else
 						initialTargetOffset,
 					positionAnimationSpec,
-					label = ""
+					label = "",
+					finishedListener = { if (!isExpanded) isOffsetCollapseAnimationDone = true }
 				)
 
 				val animatedScrim by animateColorAsState(
@@ -351,6 +354,14 @@ fun OverlayLayout(
 					state.setIsExpandedToTrue(overlayKey)
 				}
 
+				LaunchedEffect(isOffsetCollapseAnimationDone, isSizeCollapseAnimationDone) {
+					if (isOffsetCollapseAnimationDone && isSizeCollapseAnimationDone) {
+						// TODO handle composables flying across the screen
+						// when back is invoked quickly and many times
+						state.removeFromOverlayStack(overlayKey)
+					}
+				}
+
 				// i dont remember why i thought this was needed
 				LaunchedEffect(animationProgress) {
 					state.setItemsOffsetAnimationProgress(
@@ -367,13 +378,6 @@ fun OverlayLayout(
 						overlayKey,
 						animationProgress
 					)
-
-					if (!isExpanded && animationProgress == 0f) {
-						// TODO handle composables flying across the screen
-						// when back is invoked quickly and many times
-						delay(200)
-						state.removeFromOverlayStack(overlayKey)
-					}
 
 					// TODO fix scale fraction
 //				val widthScaleFraction = animatedSize.width / screenSize.width.toFloat()
@@ -418,6 +422,10 @@ fun OverlayLayout(
 						// display content
 						state.getItemsContent(overlayKey)()
 					}
+
+					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+						state.getScreenAboveAnItem(overlayKey)()
+					}
 				}
 			}
 		}
@@ -426,10 +434,9 @@ fun OverlayLayout(
 
 @SuppressLint("CoroutineCreationDuringComposition", "ComposableNaming")
 @Composable
-fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
-	val firstOverlayKey by remember { derivedStateOf { state.overlayStack.firstOrNull() } }
+private fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
-	val isOverlaying by remember { derivedStateOf { firstOverlayKey != null } }
+	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.size != 0 } }
 
 	val scope = rememberCoroutineScope()
 
@@ -468,7 +475,7 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 			}
 
 			// why doesnt his work TODO
-			if (isOverlaying)  {
+			if (isAnyOverlayExpanded)  {
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
 					thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
 						OnBackInvokedDispatcher.PRIORITY_OVERLAY,
@@ -482,6 +489,6 @@ fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivi
 			}
 		}
 	} else {
-		BackHandler(isOverlaying) { state.closeLastOverlay() }
+		BackHandler(isAnyOverlayExpanded) { state.closeLastOverlay() }
 	}
 }

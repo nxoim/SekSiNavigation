@@ -35,6 +35,7 @@ fun OverlayItemWrapper(
 	key: Any,
 	state: OverlayLayoutState,
 	screenBehindContent: @Composable () -> Unit = { Box{ } },
+	screenAboveContent: @Composable () -> Unit = { Box{ } },
 	content: @Composable () -> Unit
 ) {
 	val density = LocalDensity.current.density
@@ -68,6 +69,7 @@ fun OverlayItemWrapper(
 		key,
 		updatedBounds,
 		screenBehindContent,
+		screenAboveContent,
 		content,
 		overlaySize,
 		originalCornerRadius
@@ -97,6 +99,7 @@ fun OverlayItemWrapper(
 	originalContent: @Composable () -> Unit,
 	overlayContent: @Composable () -> Unit,
 	screenBehindContent: @Composable () -> Unit = { Box{ } },
+	screenAboveContent: @Composable () -> Unit = { Box{ } },
 	overlaySize: DpSize = DpSize.Unspecified,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
@@ -134,6 +137,7 @@ fun OverlayItemWrapper(
 		key,
 		updatedBounds,
 		screenBehindContent,
+		screenAboveContent,
 		overlayContent,
 		overlaySize,
 		originalCornerRadius

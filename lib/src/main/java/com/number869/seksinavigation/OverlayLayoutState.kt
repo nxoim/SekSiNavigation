@@ -48,6 +48,7 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	// contains the item's content
 	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
 	private val screensBehindItems = mutableStateMapOf<String, @Composable () -> Unit>()
+	private val screensAboveItems = mutableStateMapOf<String, @Composable () -> Unit>()
 
 	// Define a list to keep track of the IDs of the overlays in the order they were opened
 	private val _overlayStack = mutableStateListOf<String>()
@@ -123,6 +124,7 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		key: Any,
 		originalSize: Rect,
 		screenBehindContent: @Composable () -> Unit,
+		screenAboveContent: @Composable () -> Unit,
 		content: @Composable () -> Unit,
 		expandedSize: DpSize,
 		originalCornerRadius: Dp
@@ -152,6 +154,11 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			screensBehindItems.putIfAbsent(
 				key.toString(),
 				screenBehindContent
+			)
+
+			screensAboveItems.putIfAbsent(
+				key.toString(),
+				screenAboveContent
 			)
 		}
 	}
@@ -225,6 +232,11 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	@Composable
 	fun getScreenBehindAnItem(key: Any): @Composable() (() -> Unit) {
 		return if (screensBehindItems[key.toString()] != null) screensBehindItems[key.toString()]!! else { { Box { } } }
+	}
+
+	@Composable
+	fun getScreenAboveAnItem(key: Any): @Composable() (() -> Unit) {
+		return if (screensAboveItems[key.toString()] != null) screensAboveItems[key.toString()]!! else { { Box { } } }
 	}
 
 	@Composable
