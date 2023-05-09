@@ -24,6 +24,10 @@ data class OverlayItemWrapperState(
 	val gestureOffset: Offset,
 	val isBeingSwiped: Boolean = false,
 	val scaleFraction: ScaleFraction = ScaleFraction(),
+	// progress values will sometimes be less than 0f and that might cause
+	// crashes if you use them in Color or padding animations.
+	// use something like val progress = max(0f, aProgress) to prevent
+	// the potential crash
 	val offsetAnimationProgress: Float = 0f,
 	val sizeAnimationProgress: Float = 0f,
 	val animationProgress: Float = 0f,
