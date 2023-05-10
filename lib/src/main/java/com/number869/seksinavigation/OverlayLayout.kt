@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.EaseInCirc
 import androidx.compose.animation.core.EaseOutCubic
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
@@ -45,7 +46,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.lang.Float.max
 import kotlin.math.min
@@ -74,11 +74,9 @@ fun OverlayLayout(
 		}
 	}
 
-	val overlayAnimationSpecs = state.overlayDefaultAnimationSpecs
-
 	val firstOverlayExpansionFraction by remember{
 		derivedStateOf {
-			state.itemsState[firstOverlayKey]?.animationProgress ?: 0f
+			state.itemsState[firstOverlayKey]?.animationProgress?.combined ?: 0f
 		}
 	}
 
@@ -131,6 +129,7 @@ fun OverlayLayout(
 		state.overlayStack.forEach { overlayKey ->
 			Box {
 				val itemState by remember { derivedStateOf { state.itemsState[overlayKey]!! } }
+				val animationSpecs = itemState.overlayParameters.animationSpecs
 
 				// this one is for the scrim
 				val isOverlayAboveOtherOverlays = lastOverlayKey == overlayKey
@@ -138,7 +137,7 @@ fun OverlayLayout(
 				val lastOverlayExpansionFraction = if (isOverlayAboveOtherOverlays) {
 					0f
 				} else {
-					state.itemsState[lastOverlayKey]?.animationProgress ?: 0f
+					state.itemsState[lastOverlayKey]?.animationProgress?.combined ?: 0f
 				}
 
 				val isExpanded by remember{ derivedStateOf { state.getIsExpanded(overlayKey) } }
@@ -155,23 +154,23 @@ fun OverlayLayout(
 				val gestureProgress by remember{
 					derivedStateOf {
 						EaseOutCubic.transform(
-							itemState.gestureProgress
+							itemState.gestureData.progress
 						)
 					}
 				}
 
-				val gestureSwipeEdge by remember { derivedStateOf { itemState.gestureSwipeEdge } }
-				val gestureOffset by remember { derivedStateOf { itemState.gestureOffset } }
+				val gestureSwipeEdge by remember { derivedStateOf { itemState.gestureData.swipeEdge } }
+				val gestureOffset by remember { derivedStateOf { itemState.gestureData.offset } }
 
 				val positionAnimationSpec = if (isExpanded)
-					overlayAnimationSpecs.positionToExpandedAnimationSpec
+					animationSpecs.positionToExpanded
 				else
-					overlayAnimationSpecs.positionToCollapsedAnimationSpec
+					animationSpecs.positionToCollapsed
 
 				val sizeAnimationSpec = if (isExpanded)
-					overlayAnimationSpecs.sizeToExpandedAnimationSpec
+					animationSpecs.sizeToExpanded
 				else
-					overlayAnimationSpecs.sizeToCollapsedAnimationSpec
+					animationSpecs.sizeToCollapsed
 
 
 				val onSwipeScaleChangeExtent = 0.4f
@@ -180,35 +179,31 @@ fun OverlayLayout(
 				// the higher the number above is - the earlier the gesture will
 				// fully depend the vertical swipe offset
 
-				// interpolates from 0 to 1 over the specified duration
-				// into "animationProgress"
 				val offsetAnimationProgress by animateFloatAsState(
 					if (isExpanded) 1f else 0f,
-					animationSpec = if (isExpanded) tween(
-						durationMillis = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.durationMillis,
-						easing = state.overlayDefaultAnimationSpecs.positionToExpandedAnimationSpec.easing
+					animationSpec = if (isExpanded) spring(
+						dampingRatio = animationSpecs.positionToExpanded.dampingRatio,
+						stiffness = animationSpecs.positionToExpanded.stiffness
 					) else spring(
-						state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.dampingRatio,
-						state.overlayDefaultAnimationSpecs.positionToCollapsedAnimationSpec.stiffness
+						animationSpecs.positionToCollapsed.dampingRatio,
+						animationSpecs.positionToCollapsed.stiffness
 					),
 					label = ""
 				)
 				val sizeAnimationProgress by animateFloatAsState(
 					if (isExpanded) 1f else 0f,
-					animationSpec = if (isExpanded) tween(
-						durationMillis = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.durationMillis,
-						delayMillis = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.delay,
-						easing = state.overlayDefaultAnimationSpecs.sizeToExpandedAnimationSpec.easing
-					) else tween(
-						durationMillis = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.durationMillis,
-						delayMillis = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.delay,
-						easing = state.overlayDefaultAnimationSpecs.sizeToCollapsedAnimationSpec.easing
+					animationSpec = if (isExpanded) SpringSpec(
+						dampingRatio = animationSpecs.sizeToExpanded.dampingRatio,
+						stiffness = animationSpecs.sizeToExpanded.stiffness,
+					) else SpringSpec(
+						dampingRatio = animationSpecs.sizeToCollapsed.dampingRatio,
+						stiffness = animationSpecs.sizeToCollapsed.stiffness,
 					),
 					label = ""
 				)
 
 				val animationProgress = (offsetAnimationProgress + sizeAnimationProgress) * 0.5f
-				val useGestureValues by remember { derivedStateOf { itemState.isBeingSwiped } }
+				val useGestureValues by remember { derivedStateOf {itemState.isBeingSwiped} }
 
 				var isOffsetCollapseAnimationDone by remember { mutableStateOf(false) }
 				var isSizeCollapseAnimationDone by remember { mutableStateOf(false) }
@@ -240,11 +235,11 @@ fun OverlayLayout(
 
 				val animatedSize by animateIntSizeAsState(
 					if (isExpanded) {
-						if (itemState.expandedSize == DpSize.Unspecified)
+						if (itemState.overlayParameters.size == DpSize.Unspecified)
 							screenSize
 						else IntSize(
-							itemState.expandedSize.width.value.toInt(),
-							itemState.expandedSize.height.value.toInt()
+							itemState.overlayParameters.size.width.value.toInt(),
+							itemState.overlayParameters.size.height.value.toInt()
 						)
 					} else {
 						originalSize
@@ -270,7 +265,7 @@ fun OverlayLayout(
 						// if swipe is from the right side
 							calculatedCenterOffset().x + (-(screenSize.width * gestureTransformEffectAmount) * gestureProgress),
 						y = calculatedCenterOffset().y + ((gestureDistanceFromStartingPoint.y * (gestureTransformEffectAmount * 1.35f))  * min(gestureProgress * 2f, 1f))
-						// we use min(gestureProgress * 2f, 1f) above to mask
+						// we use min(progress * 2f, 1f) above to mask
 						// offset not being set properly in the first milliseconds lmao
 					)
 				}
@@ -328,8 +323,8 @@ fun OverlayLayout(
 				val processedCornerRadius: () -> Dp = {
 					androidx.compose.ui.unit.max(
 						0.dp,
-						// when gestureProgress is 1f - corner radius is 36.dp.
-						// when item is not expanded - gestureProgress doesn't
+						// when progress is 1f - corner radius is 36.dp.
+						// when item is not expanded - progress doesn't
 						// matter and corner radius is whatever the default has
 						// been set in OverlayItemWrapper's parameters.
 						((36.dp *  gestureProgress) * animationProgress)
@@ -374,7 +369,7 @@ fun OverlayLayout(
 						sizeAnimationProgress
 					)
 
-					state.setItemsAnimationProgress(
+					state.setItemsCombinedAnimationProgress(
 						overlayKey,
 						animationProgress
 					)
