@@ -3,22 +3,19 @@ package com.number869.seksinavigation
 import android.annotation.SuppressLint
 import android.os.Build
 import android.window.BackEvent
-import android.window.OnBackAnimationCallback
-import android.window.OnBackInvokedDispatcher
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.EaseInCirc
 import androidx.compose.animation.core.EaseInExpo
-import androidx.compose.animation.core.EaseOutCirc
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -27,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -440,56 +438,58 @@ fun OverlayLayout(
 @Composable
 private fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
-	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.size != 0 } }
+	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.firstOrNull() != null } }
+	val meetsVersionRequirements = Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake"
 
 	val scope = rememberCoroutineScope()
 
-	if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake") {
+	if (meetsVersionRequirements) {
 		rememberCoroutineScope().launch {
-			val onBackPressedCallback = @RequiresApi(34) object: OnBackAnimationCallback {
-				override fun onBackInvoked() {
-					state.closeLastOverlay()
-					lastOverlayKey?.let { state.setSwipeState(it, false) }
+			val onBackPressedCallback = @RequiresApi(34) object: OnBackPressedCallback(isAnyOverlayExpanded) {
+				override fun handleOnBackPressed() {
+					if (isAnyOverlayExpanded) {
+						state.closeLastOverlay()
+						lastOverlayKey?.let { state.setSwipeState(it, false) }
+					} else {
+						// TODO i tried everything. it doesnt work.
+						remove()
+					}
 				}
 
-				override fun onBackStarted(backEvent: BackEvent) {
-					super.onBackStarted(backEvent)
+				override fun handleOnBackStarted(backEvent: BackEvent) {
+					super.handleOnBackStarted(backEvent)
 					lastOverlayKey?.let { state.setSwipeState(it, true) }
 				}
 
-				override fun onBackCancelled() {
-					super.onBackCancelled()
-					lastOverlayKey?.let { state.setSwipeState(it, false) }
-				}
+				override fun handleOnBackProgressed(backEvent: BackEvent) {
+					super.handleOnBackProgressed(backEvent)
 
-				override fun onBackProgressed(backEvent: BackEvent) {
-					super.onBackProgressed(backEvent)
+					if (isAnyOverlayExpanded) {
+						scope.launch {
+							val itemState = state.itemsState[lastOverlayKey]
 
-					// does running it in a coroutine even help performance
-					scope.launch {
-						val itemState = state.itemsState[lastOverlayKey]
-
-						if (itemState != null) {
-							lastOverlayKey?.let {
-								state.updateGestureValues(it, backEvent)
+							if (itemState != null) {
+								lastOverlayKey?.let {
+									state.updateGestureValues(it, backEvent)
+								}
 							}
 						}
 					}
 				}
+
+				override fun handleOnBackCancelled() {
+					super.handleOnBackCancelled()
+
+					if (isAnyOverlayExpanded) {
+						lastOverlayKey?.let { state.setSwipeState(it, false) }
+					}
+				}
 			}
 
-			// why doesnt his work TODO
-			if (isAnyOverlayExpanded)  {
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-					thisOfActivity.onBackInvokedDispatcher.registerOnBackInvokedCallback(
-						OnBackInvokedDispatcher.PRIORITY_OVERLAY,
-						onBackPressedCallback
-					)
-				}
+			if (isAnyOverlayExpanded) {
+				thisOfActivity.onBackPressedDispatcher.addCallback(onBackPressedCallback)
 			} else {
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-					thisOfActivity.onBackInvokedDispatcher.unregisterOnBackInvokedCallback(onBackPressedCallback)
-				}
+				onBackPressedCallback.remove()
 			}
 		}
 	} else {
