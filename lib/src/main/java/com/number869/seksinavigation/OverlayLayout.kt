@@ -10,6 +10,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.EaseInCirc
+import androidx.compose.animation.core.EaseInExpo
+import androidx.compose.animation.core.EaseOutCirc
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.animateFloatAsState
@@ -393,7 +395,14 @@ fun OverlayLayout(
 							drawRect(animatedScrim)
 						}
 				) {
-					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+					val aboveAndBehindAlpha: () -> Float = {
+						if (isExpanded)
+							EaseInCirc.transform(sizeAnimationProgress)
+						else
+							EaseInExpo.transform(sizeAnimationProgress)
+					}
+
+					Box(Modifier.alpha(aboveAndBehindAlpha())) {
 						state.getScreenBehindAnItem(overlayKey)()
 					}
 
@@ -418,7 +427,7 @@ fun OverlayLayout(
 						state.getItemsContent(overlayKey)()
 					}
 
-					Box(Modifier.alpha(EaseInCirc.transform(sizeAnimationProgress))) {
+					Box(Modifier.alpha(aboveAndBehindAlpha())) {
 						state.getScreenAboveAnItem(overlayKey)()
 					}
 				}
