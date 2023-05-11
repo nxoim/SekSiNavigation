@@ -20,28 +20,37 @@ import androidx.compose.ui.unit.dp
 
 data class OverlayItemWrapperState(
 	val originalBounds: Rect,
-	val gestureProgress: Float,
-	val gestureSwipeEdge: Int,
-	val gestureOffset: Offset,
-	val isBeingSwiped: Boolean = false,
+	val gestureData: GestureData,
 	val scaleFraction: ScaleFraction = ScaleFraction(),
+	val animationProgress: AnimationProgress = AnimationProgress(),
+	val overlayParameters: OverlayParameters,
+	val originalCornerRadius: Dp,
+	// isBeingSwiped wouldnt update in GestureData so its here:)
+	val isBeingSwiped: Boolean = false
+)
+
+data class AnimationProgress(
 	// progress values will sometimes be less than 0f and that might cause
 	// crashes if you use them in Color or padding animations.
 	// use something like val progress = max(0f, aProgress) to prevent
 	// the potential crash
-	val offsetAnimationProgress: Float = 0f,
-	val sizeAnimationProgress: Float = 0f,
-	val animationProgress: Float = 0f,
-	val expandedSize: DpSize,
-	val originalCornerRadius: Dp,
+	val ofOffset: Float = 0f,
+	val ofSize: Float = 0f,
+	val combined: Float = 0f,
 )
 
+data class GestureData(
+	val progress: Float = 0f,
+	val swipeEdge: Int = 0,
+	val offset: Offset = Offset.Zero
+)
 data class ScaleFraction(
-	val byWidth: Float = 0f,
-	val byHeight: Float = 0f
+	// TODO make this work
+	val byWidth: Float = 1f,
+	val byHeight: Float = 1f
 )
 
-class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
+class OverlayLayoutState() {
 	// contains the item's state
 	private val _itemsState = mutableStateMapOf<String, OverlayItemWrapperState>()
 	val itemsState get() = _itemsState
@@ -57,14 +66,14 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	private val _listOfExpandedOverlays = mutableStateListOf<String>()
 	val listOfExpandedOverlays get() = _listOfExpandedOverlays
 
-	val overlayDefaultAnimationSpecs  = overlayAnimationSpecs
-
 	val emptyOverlayItemValues = OverlayItemWrapperState(
 		originalBounds = Rect.Zero,
-		gestureProgress = 0f,
-		gestureSwipeEdge = 0,
-		gestureOffset = Offset.Zero,
-		expandedSize = DpSize.Unspecified,
+		gestureData = GestureData(
+			progress = 0f,
+			swipeEdge = 0,
+			offset = Offset.Zero,
+		),
+		overlayParameters = OverlayDefaults.defaultOverlayParameters,
 		originalCornerRadius = 0.dp
 	)
 
@@ -94,8 +103,10 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			_itemsState.replace(
 				route.toString(),
 				_itemsState[route.toString()]!!.copy(
-					gestureProgress = 0f,
-					gestureOffset = Offset.Zero,
+					gestureData = GestureData(
+						progress = 0f,
+						offset = Offset.Zero
+					)
 				)
 			)
 			Log.d(TAG, "Added $route to _overlayStack")
@@ -125,8 +136,8 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		originalSize: Rect,
 		screenBehindContent: @Composable () -> Unit,
 		screenAboveContent: @Composable () -> Unit,
-		content: @Composable () -> Unit,
-		expandedSize: DpSize,
+		overlayContent: @Composable () -> Unit,
+		overlayParameters: OverlayParameters = OverlayDefaults.defaultOverlayParameters,
 		originalCornerRadius: Dp
 	) {
 		// defaults
@@ -135,10 +146,12 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 				key.toString(),
 				OverlayItemWrapperState(
 					originalBounds = originalSize,
-					gestureProgress = 0f,
-					gestureSwipeEdge = 0,
-					gestureOffset = Offset.Zero,
-					expandedSize = expandedSize,
+					gestureData = GestureData(
+						progress = 0f,
+						swipeEdge = 0,
+						offset = Offset.Zero
+					),
+					overlayParameters = overlayParameters,
 					originalCornerRadius = originalCornerRadius
 				)
 			)
@@ -148,7 +161,7 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		if (!itemsContent.containsKey(key)) {
 			itemsContent.putIfAbsent(
 				key.toString(),
-				content
+				overlayContent
 			)
 
 			screensBehindItems.putIfAbsent(
@@ -170,9 +183,11 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 	@RequiresApi(34)
 	fun updateGestureValues(key: Any, backEvent: BackEvent) {
 		_itemsState[key.toString()] = itemsState[key.toString()]!!.copy(
-			gestureProgress = backEvent.progress,
-			gestureSwipeEdge = backEvent.swipeEdge,
-			gestureOffset = Offset(backEvent.touchX, backEvent.touchY)
+			gestureData = GestureData(
+				progress = backEvent.progress,
+				swipeEdge = backEvent.swipeEdge,
+				offset = Offset(backEvent.touchX, backEvent.touchY)
+			)
 		)
 	}
 
@@ -188,8 +203,10 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 			_itemsState.replace(
 				forRoute.toString(),
 				_itemsState[forRoute.toString()]!!.copy(
-					gestureProgress = 0f,
-					gestureOffset = Offset.Zero
+					gestureData = GestureData(
+						progress = 0f,
+						offset = Offset.Zero
+					)
 				)
 			)
 		}
@@ -199,16 +216,20 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		_itemsState.replace(
 			key.toString(),
 			_itemsState[key.toString()]!!.copy(
-				offsetAnimationProgress = newProgress
+				animationProgress = AnimationProgress(
+					ofOffset = newProgress
+				)
 			)
 		)
 	}
 
-	fun setItemsAnimationProgress(key: Any, newProgress: Float) {
+	fun setItemsCombinedAnimationProgress(key: Any, newProgress: Float) {
 		_itemsState.replace(
 			key.toString(),
 			_itemsState[key.toString()]!!.copy(
-				animationProgress = newProgress
+				animationProgress = AnimationProgress(
+					combined = newProgress
+				)
 			)
 		)
 	}
@@ -217,7 +238,9 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 		_itemsState.replace(
 			key.toString(),
 			_itemsState[key.toString()]!!.copy(
-				sizeAnimationProgress = newProgress
+				animationProgress = AnimationProgress(
+					ofSize = newProgress
+				)
 			)
 		)
 	}
@@ -246,8 +269,6 @@ class OverlayLayoutState(overlayAnimationSpecs: OverlayAnimationSpecs) {
 }
 
 @Composable
-fun rememberOverlayLayoutState(
-	overlayAnimationSpecs: OverlayAnimationSpecs = OverlayLayoutDefaults().overlayDefaultAnimationSpecs()
-) = remember {
-	OverlayLayoutState(overlayAnimationSpecs = overlayAnimationSpecs)
+fun rememberOverlayLayoutState() = remember {
+	OverlayLayoutState()
 }

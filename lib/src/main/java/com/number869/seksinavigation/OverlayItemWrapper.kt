@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 // TODO handle content possibly being null
 @Composable
 fun OverlayItemWrapper(
-	modifierForOriginal: Modifier = Modifier,
-	overlaySize: DpSize = DpSize.Unspecified,
+	originalModifier: Modifier = Modifier,
+	overlayParameters: OverlayParameters = OverlayDefaults.defaultOverlayParameters,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
 	key: Any,
@@ -45,7 +45,7 @@ fun OverlayItemWrapper(
 
 	// render the content only when item is expanded or has transitioned
 	Box(
-		modifierForOriginal
+		originalModifier
 			.onGloballyPositioned {
 				if (isOriginalItemStatic) {
 					if (!isOverlaying) updatedBounds = it.boundsInWindow()
@@ -65,15 +65,19 @@ fun OverlayItemWrapper(
 		 content()
 	}
 
-	state.putItem(
-		key,
-		updatedBounds,
-		screenBehindContent,
-		screenAboveContent,
-		content,
-		overlaySize,
-		originalCornerRadius
-	)
+	LaunchedEffect(Unit) {
+		state.putItem(
+			key,
+			updatedBounds,
+			screenBehindContent,
+			screenAboveContent,
+			content,
+			overlayParameters,
+			originalCornerRadius
+		)
+	}
+
+
 
 	// TODO fix scale fraction
 //	val widthScaleFraction = state.screenSize.width.toFloat() / updatedBounds.width
@@ -95,12 +99,12 @@ fun OverlayItemWrapper(
 
 @Composable
 fun OverlayItemWrapper(
-	modifierForOriginal: Modifier = Modifier,
+	originalModifier: Modifier = Modifier,
 	originalContent: @Composable () -> Unit,
 	overlayContent: @Composable () -> Unit,
 	screenBehindContent: @Composable () -> Unit = { Box{ } },
 	screenAboveContent: @Composable () -> Unit = { Box{ } },
-	overlaySize: DpSize = DpSize.Unspecified,
+	overlayParameters: OverlayParameters = OverlayDefaults.defaultOverlayParameters,
 	isOriginalItemStatic: Boolean = false,
 	originalCornerRadius: Dp = 0.dp,
 	key: Any,
@@ -113,7 +117,7 @@ fun OverlayItemWrapper(
 
 	// render the content only when item is expanded or has transitioned
 	Box(
-		modifierForOriginal
+		originalModifier
 			.onGloballyPositioned {
 				if (isOriginalItemStatic) {
 					if (!isOverlaying) updatedBounds = it.boundsInWindow()
@@ -133,15 +137,17 @@ fun OverlayItemWrapper(
 		originalContent()
 	}
 
-	state.putItem(
-		key,
-		updatedBounds,
-		screenBehindContent,
-		screenAboveContent,
-		overlayContent,
-		overlaySize,
-		originalCornerRadius
-	)
+	LaunchedEffect(Unit) {
+		state.putItem(
+			key,
+			updatedBounds,
+			screenBehindContent,
+			screenAboveContent,
+			overlayContent,
+			overlayParameters,
+			originalCornerRadius
+		)
+	}
 
 	// TODO fix scale fraction
 //	val widthScaleFraction = state.screenSize.width.toFloat() / updatedBounds.width
