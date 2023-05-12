@@ -14,7 +14,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 
 
@@ -91,13 +90,13 @@ class OverlayLayoutState() {
 		if (_overlayStack.contains(route.toString())) {
 			_overlayStack.remove(route.toString())
 		} else {
-			Log.d(TAG, "overlay stack doesnt have $route")
+			Log.d(TAG, "overlay stack doesn't have $route")
 		}
 	}
 
 	fun addToOverlayStack(route: Any) {
-		if (_overlayStack.contains(route.toString())) {
-			Log.d(TAG, "Something is wrong. $route.toString() is already present in _overlayStack.")
+		if (_overlayStack.contains(route.toString()) && _listOfExpandedOverlays.contains(route.toString())) {
+			Log.d(TAG, "Something is wrong. $route.toString() is already present in _overlayStack and is expanded..")
 		} else {
 			_overlayStack.add(route.toString())
 			_itemsState.replace(
@@ -119,16 +118,16 @@ class OverlayLayoutState() {
 
 		if (lastOverlayId != null) {
 			_listOfExpandedOverlays.removeLastOrNull()
-
-			// the removal happens in the ExpandableItemLayout in a
-			// coroutine after the animation is done
-			Log.d(TAG, "bruh closed" + lastOverlayId)
-			Log.d(TAG, "bruh remaining" + _overlayStack.joinToString("\n"))
 		} else {
 			_overlayStack.clear()
 			_listOfExpandedOverlays.clear()
-			Log.d(TAG, "bruh overlayStack is clear already")
 		}
+		// the removal happens in the ExpandableItemLayout in a
+		// coroutine after the animation is done
+		Log.d(TAG, "closed overlay $lastOverlayId")
+
+		Log.d(TAG, "remaining overlays in stack:" + _overlayStack.joinToString(", "))
+		Log.d(TAG, "remaining overlays expanded:" + _listOfExpandedOverlays.joinToString(", "))
 	}
 
 	fun putItem(
