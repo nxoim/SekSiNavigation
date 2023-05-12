@@ -39,7 +39,11 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
@@ -96,7 +100,7 @@ fun OverlayLayout(
 
 	val processedNonOverlayScale by remember(firstOverlayExpansionFraction) {
 		derivedStateOf {
-			1f - firstOverlayExpansionFraction * 0.1f
+			1f - firstOverlayExpansionFraction * 0.05f
 		}
 	}
 
@@ -198,12 +202,7 @@ fun OverlayLayout(
 					}
 				}
 
-
-				val onSwipeScaleChangeExtent = 0.4f
-				val gestureTransformEffectAmount = 0.2f
-
-				// the higher the number above is - the earlier the gesture will
-				// fully depend the vertical swipe offset
+				val onSwipeScaleChangeExtent = 0.1f
 
 				val offsetAnimationProgress by animateFloatAsState(
 					if (isExpanded) 1f else 0f,
@@ -307,12 +306,12 @@ fun OverlayLayout(
 						Offset(
 							x = if (gestureSwipeEdge == 0)
 							// if swipe is from the left side
-								calculatedCenterOffset.x + ((screenSize.width * gestureTransformEffectAmount) * gestureProgress)
+								calculatedCenterOffset.x + (((screenSize.width * 0.05f) - 8) * gestureProgress)* density
 							else
 							// if swipe is from the right side
-								calculatedCenterOffset.x + (-(screenSize.width * gestureTransformEffectAmount) * gestureProgress),
-							y = calculatedCenterOffset.y + ((gestureDistanceFromStartingPoint.y * (gestureTransformEffectAmount * 1.35f))  * min(gestureProgress * 2f, 1f))
-							// we use min(progress * 2f, 1f) above to mask
+								calculatedCenterOffset.x + (-((screenSize.width * 0.05f) - 8) * gestureProgress) * density,
+							y = (calculatedCenterOffset.y + ((gestureDistanceFromStartingPoint.y * 0.05f) * density)  * min(gestureProgress * 10f, 1f))
+							// we use min(progress * 10f, 1f) above to mask
 							// offset not being set properly in the first milliseconds lmao
 						)
 					}
@@ -364,15 +363,15 @@ fun OverlayLayout(
 
 				val processedScale by remember {
 					derivedStateOf {
-						(		// scale when another overlay is being displayed
-								(1f - lastOverlayExpansionFraction * 0.1f)
-										+
-										// scale with gestures
-										((gestureProgress / 2) * -onSwipeScaleChangeExtent)
-										// scale back to normal when gestures are completed
-										*
-										sizeAnimationProgress
-								)
+						(	// scale when another overlay is being displayed
+							(1f - lastOverlayExpansionFraction * 0.05f)
+							+
+							// scale with gestures
+							((gestureProgress) * -0.1f)
+							// scale back to normal when gestures are completed
+							*
+							sizeAnimationProgress
+						)
 					}
 				}
 
@@ -384,7 +383,7 @@ fun OverlayLayout(
 							// when item is not expanded - progress doesn't
 							// matter and corner radius is whatever the default has
 							// been set in OverlayItemWrapper's parameters.
-							((36.dp *  gestureProgress) * animationProgress)
+							((32.dp *  gestureProgress) * animationProgress)
 									+ (itemState.originalCornerRadius * (1f - animationProgress))
 						)
 					}
@@ -397,7 +396,7 @@ fun OverlayLayout(
 
 				// to count how much the user has swiped, not where the
 				// finger is on the screen
-				LaunchedEffect(gestureProgress < 0.01f) {
+				LaunchedEffect(useGestureValues) {
 					initialGestureOffset = gestureOffset
 				}
 
