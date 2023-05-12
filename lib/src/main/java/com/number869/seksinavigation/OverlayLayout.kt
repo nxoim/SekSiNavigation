@@ -132,6 +132,18 @@ fun OverlayLayout(
 				val itemState by remember { derivedStateOf { state.itemsState[overlayKey]!! } }
 				val animationSpecs = itemState.overlayParameters.animationSpecs
 
+				val maxSize by remember {
+					derivedStateOf {
+						if (itemState.overlayParameters.size == DpSize.Unspecified)
+							screenSize
+						else
+							IntSize(
+								itemState.overlayParameters.size.width.value.toInt(),
+								itemState.overlayParameters.size.height.value.toInt()
+							)
+					}
+				}
+
 				// this one is for the scrim
 				val isOverlayAboveOtherOverlays by remember { derivedStateOf { lastOverlayKey == overlayKey } }
 
@@ -277,10 +289,16 @@ fun OverlayLayout(
 
 				val calculatedCenterOffset by remember {
 					derivedStateOf {
-						Offset(
+						if (itemState.overlayParameters.animationSpecs.bounceThroughTheCenter)
+							Offset(
 							((screenSize.width - animatedSize.width) * 0.5f) * density,
 							((screenSize.height - animatedSize.height) * 0.5f) * density
-						)
+							)
+						else
+							Offset(
+								((screenSize.width - maxSize.width) * 0.5f) * density,
+								((screenSize.height - maxSize.height) * 0.5f) * density
+							)
 					}
 				}
 
