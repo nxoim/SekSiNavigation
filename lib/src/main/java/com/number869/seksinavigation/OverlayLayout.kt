@@ -109,7 +109,7 @@ fun OverlayLayout(
 		Modifier
 			.fillMaxSize()
 			.onSizeChanged {
-				screenSize = IntSize(
+				if (screenSize == IntSize.Zero) screenSize = IntSize(
 					(it.width / density).toInt(),
 					(it.height / density).toInt()
 				)
@@ -162,16 +162,14 @@ fun OverlayLayout(
 				}
 
 				val isExpanded by remember { derivedStateOf { state.getIsExpanded(overlayKey) } }
-				val originalSize by remember {
-					derivedStateOf {
+				var originalSize by remember {
+					mutableStateOf(
 						IntSize(
 							(itemState.originalBounds.size.width / density).toInt(),
 							(itemState.originalBounds.size.height / density).toInt()
 						)
-					}
+					)
 				}
-
-				val originalOffset by remember { derivedStateOf { itemState.originalBounds.topLeft  } }
 
 				val gestureProgress by remember {
 					derivedStateOf {
@@ -243,7 +241,7 @@ fun OverlayLayout(
 				// needed for the whole animation to move with the content as
 				// soon as the finger moves. the alternative, simple use of
 				// animate*AsState, would bring a lot of input latency
-				var initialTargetOffset by remember { mutableStateOf(originalOffset) }
+				var initialTargetOffset by remember { mutableStateOf(itemState.originalBounds.topLeft) }
 
 				// used to calculate how much the user swiped across the
 				// screen in Dp
@@ -255,8 +253,8 @@ fun OverlayLayout(
 							Offset.Zero
 						else
 							Offset(
-								(originalOffset.x - initialTargetOffset.x),
-								(originalOffset.y - initialTargetOffset.y)
+								(itemState.originalBounds.topLeft.x - initialTargetOffset.x),
+								(itemState.originalBounds.topLeft.y - initialTargetOffset.y)
 							)
 					}
 				}
@@ -389,11 +387,6 @@ fun OverlayLayout(
 					}
 				}
 
-				LaunchedEffect(isExpanded) {
-					// only report this once
-					if (!isExpanded) initialTargetOffset = originalOffset
-				}
-
 				// to count how much the user has swiped, not where the
 				// finger is on the screen
 				LaunchedEffect(useGestureValues) {
@@ -403,6 +396,13 @@ fun OverlayLayout(
 				// needed for the animations to start as soon as the
 				// composable is rendered
 				LaunchedEffect(Unit) {
+					// remember the offset and size before the animation
+					initialTargetOffset = itemState.originalBounds.topLeft
+					originalSize = IntSize(
+						(itemState.originalBounds.size.width / density).toInt(),
+						(itemState.originalBounds.size.height / density).toInt()
+					)
+
 					state.setIsExpandedToTrue(overlayKey)
 				}
 
