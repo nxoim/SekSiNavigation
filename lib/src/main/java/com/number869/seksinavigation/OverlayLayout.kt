@@ -205,9 +205,9 @@ private fun ContainerMorphOverlay(
 		val positionAnimationSpec by remember {
 			derivedStateOf {
 				if (isExpanded)
-					animationSpecs.positionToExpanded
+					animationSpecs.offsetToExpanded
 				else
-					animationSpecs.positionToCollapsed
+					animationSpecs.offsetToCollapsed
 			}
 		}
 
@@ -293,18 +293,22 @@ private fun ContainerMorphOverlay(
 			finishedListener = { if (!isExpanded) isSizeCollapseAnimationDone = true }
 		)
 
-		val calculatedCenterOffset by remember {
+		val targetOffset by remember {
 			derivedStateOf {
-				if (animationSpecs.bounceThroughTheCenter)
-					Offset(
-						((screenSize.width - animatedSize.width) * 0.5f) * density,
-						((screenSize.height - animatedSize.height) * 0.5f) * density
-					)
-				else
-					Offset(
-						((screenSize.width - maxSize.width) * 0.5f) * density,
-						((screenSize.height - maxSize.height) * 0.5f) * density
-					)
+				if (itemState.overlayParameters.targetOffset == Offset.Unspecified) {
+					if (animationSpecs.bounceThroughTheCenter)
+						Offset(
+							((screenSize.width - animatedSize.width) * 0.5f) * density,
+							((screenSize.height - animatedSize.height) * 0.5f) * density
+						)
+					else
+						Offset(
+							((screenSize.width - maxSize.width) * 0.5f) * density,
+							((screenSize.height - maxSize.height) * 0.5f) * density
+						)
+				} else {
+					itemState.overlayParameters.targetOffset
+				}
 			}
 		}
 
@@ -313,11 +317,11 @@ private fun ContainerMorphOverlay(
 				Offset(
 					x = if (gestureSwipeEdge == 0)
 					// if swipe is from the left side
-						calculatedCenterOffset.x + (((screenSize.width * 0.05f) - 8) * gestureProgress)* density
+						targetOffset.x + (((screenSize.width * 0.05f) - 8) * gestureProgress)* density
 					else
 					// if swipe is from the right side
-						calculatedCenterOffset.x + (-((screenSize.width * 0.05f) - 8) * gestureProgress) * density,
-					y = (calculatedCenterOffset.y + ((gestureDistanceFromStartingPoint.y * 0.05f) * density)  * min(gestureProgress * 10f, 1f))
+						targetOffset.x + (-((screenSize.width * 0.05f) - 8) * gestureProgress) * density,
+					y = (targetOffset.y + ((gestureDistanceFromStartingPoint.y * 0.05f) * density)  * min(gestureProgress * 10f, 1f))
 					// we use min(progress * 10f, 1f) above to mask
 					// offset not being set properly in the first milliseconds lmao
 				)
