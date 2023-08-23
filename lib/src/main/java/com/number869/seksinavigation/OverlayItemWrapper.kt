@@ -7,13 +7,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -164,4 +167,46 @@ fun OverlayItemWrapper(
 	LaunchedEffect(updatedBounds) {
 		state.setItemsBounds(key, updatedBounds)
 	}
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun OverlayLayoutLookaheadAllTestScope.OverlayItemLookaheadWrapper(
+	modifier: Modifier = Modifier,
+	key: String,
+	content: @Composable () -> Unit
+) {
+	val density = LocalDensity.current.density
+
+	val isOverlaying by remember { derivedStateOf { displayedOverlays.contains(key)  } }
+	var updatedBounds by remember { mutableStateOf(Rect.Zero) }
+	var rememberedSize by remember { mutableStateOf(DpSize.Unspecified) }
+
+	val rememberedMovableContent = remember {
+		movableContentOf {
+			Box(Modifier.animateOverlay()) { content() }
+		}
+	}
+
+	addToOverlayContents(key) { rememberedMovableContent() }
+
+	Layout(content = content) { measurables, constraints ->
+		val placeable = measurables[0].measure(constraints)
+
+		layout(0, 0) {
+			// measure and remember size for the placeholder
+			if (rememberedSize == DpSize.Unspecified)
+				rememberedSize = DpSize(
+					(placeable.width / density).dp,
+					(placeable.height / density).dp
+				)
+		}
+	}
+
+	if (isOverlaying)
+		Box(modifier = Modifier.size(rememberedSize))
+	else
+		Box(modifier) {
+			getAnOverlaysContents(key)?.invoke()
+		}
 }

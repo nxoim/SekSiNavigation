@@ -1,5 +1,5 @@
 buildscript {
-	val agp_version by extra("8.2.0-alpha03")
+	val agp_version by extra("8.2.0-alpha16")
 	dependencies {
 		classpath("com.android.tools.build:gradle:$agp_version")
 	}

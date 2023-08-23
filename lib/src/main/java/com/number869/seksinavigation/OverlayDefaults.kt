@@ -18,7 +18,8 @@ data class OverlayParameters(
 )
 
 enum class OverlayAnimationBehaviors {
-	ContainerMorph
+	ContainerMorph,
+	LookaheadFullscreenLayoutTest
 }
 
 data class OverlayAnimationSpecs(

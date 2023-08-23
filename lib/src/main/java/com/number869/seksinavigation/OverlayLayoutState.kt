@@ -3,7 +3,7 @@ package com.number869.seksinavigation
 import android.annotation.SuppressLint
 import android.service.controls.ControlsProviderService.TAG
 import android.util.Log
-import android.window.BackEvent
+import androidx.activity.BackEventCompat
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Text
@@ -54,7 +54,7 @@ class OverlayLayoutState() {
 	private val _itemsState = mutableStateMapOf<String, OverlayItemWrapperState>()
 	val itemsState get() = _itemsState
 	// contains the item's content
-	private val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
+	val itemsContent = mutableStateMapOf<String, @Composable () -> Unit>()
 	private val screensBehindItems = mutableStateMapOf<String, @Composable () -> Unit>()
 	private val screensAboveItems = mutableStateMapOf<String, @Composable () -> Unit>()
 
@@ -180,7 +180,7 @@ class OverlayLayoutState() {
 	}
 
 	@RequiresApi(34)
-	fun updateGestureValues(key: Any, backEvent: BackEvent) {
+	fun updateGestureValues(key: Any, backEvent: BackEventCompat) {
 		_itemsState[key.toString()] = itemsState[key.toString()]!!.copy(
 			gestureData = GestureData(
 				progress = backEvent.progress,

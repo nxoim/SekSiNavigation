@@ -6,11 +6,11 @@ plugins {
 
 android {
 	namespace = "com.number869.seksinavigation"
-	compileSdkPreview = "UpsideDownCake"
+	compileSdk = 34
 
 	defaultConfig {
 		minSdk = 26
-		targetSdk = 33
+		targetSdk = 34
 
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 		vectorDrawables {
@@ -38,7 +38,7 @@ android {
 		compose = true
 	}
 	composeOptions {
-		kotlinCompilerExtensionVersion = "1.4.4"
+		kotlinCompilerExtensionVersion = "1.5.1"
 	}
 	packaging {
 		resources {

@@ -2,20 +2,24 @@ package com.number869.seksinavigation
 
 import android.annotation.SuppressLint
 import android.os.Build
-import android.window.BackEvent
+import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.EaseInCirc
 import androidx.compose.animation.core.EaseInExpo
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntSizeAsState
 import androidx.compose.animation.core.animateOffsetAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -25,26 +29,35 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.LookaheadScope
+import androidx.compose.ui.layout.intermediateLayout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.round
+import androidx.compose.ui.unit.roundToIntRect
 import com.number869.seksinavigation.OverlayAnimationBehaviors.ContainerMorph
+import com.number869.seksinavigation.OverlayAnimationBehaviors.LookaheadFullscreenLayoutTest
 import kotlinx.coroutines.launch
 import java.lang.Float.max
 import kotlin.math.min
@@ -136,7 +149,227 @@ fun OverlayLayout(
 					screenSize = screenSize,
 					overlayKey = overlayKey
 				)
+
+				LookaheadFullscreenLayoutTest -> LookaheadFullscreenLayoutTestLayout(
+					state = state,
+					screenSize = screenSize,
+					overlayKey = overlayKey
+				)
 			}
+		}
+	}
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun LookaheadFullscreenLayoutTestLayout(
+	state: OverlayLayoutState,
+	screenSize: IntSize,
+	overlayKey: String
+) {
+	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
+	val density = LocalDensity.current.density
+	val itemState by remember { derivedStateOf { state.itemsState[overlayKey]!! } }
+	val expanded by remember { derivedStateOf { state.getIsExpanded(overlayKey) }}
+
+	val gestureProgress by remember {
+		derivedStateOf {
+			EaseOutCubic.transform(
+				itemState.gestureData.progress
+			)
+		}
+	}
+	var initialGestureOffset by remember { mutableStateOf(Offset.Zero) }
+	val gestureSwipeEdge by remember { derivedStateOf { itemState.gestureData.swipeEdge } }
+	val gestureOffset by remember { derivedStateOf { itemState.gestureData.offset } }
+	val gestureDistanceFromStartingPoint by remember {
+		derivedStateOf {
+			Offset (
+				gestureOffset.x - initialGestureOffset.x,
+				gestureOffset.y - initialGestureOffset.y
+			)
+		}
+	}
+
+	// to count how much the user has swiped, not where the
+	// finger is on the screen
+	LaunchedEffect(itemState.isBeingSwiped) {
+		initialGestureOffset = gestureOffset
+	}
+
+	val swipeOffsetDeviation by remember {
+		derivedStateOf {
+			IntOffset(
+				x = if (gestureSwipeEdge == 0)
+					// if swipe is from the left side
+					((((screenSize.width * 0.05f) - 8) * gestureProgress) * density).roundToInt()
+				else
+					// if swipe is from the right side
+					((-((screenSize.width * 0.05f) - 8) * gestureProgress) * density).roundToInt(),
+				y = ((((gestureDistanceFromStartingPoint.y * 0.05f) * density) * min(gestureProgress * 10f, 1f))).roundToInt()
+				// we use min(progress * 10f, 1f) above to mask
+				// offset not being set properly in the first milliseconds lmao
+			)
+		}
+	}
+
+	var offsetCollapseAnimationFinished by remember { mutableStateOf(false) }
+	var sizeCollapseAnimationFinished by remember { mutableStateOf(false) }
+	val animationIsFinished = offsetCollapseAnimationFinished && sizeCollapseAnimationFinished
+
+	val originalOffset by remember { derivedStateOf { itemState.originalBounds.topLeft.round() } }
+	var initialTargetOffset by remember { mutableStateOf(originalOffset) }
+	val targetOffset by remember {
+		derivedStateOf {
+			if (expanded) IntOffset(0, 0) else initialTargetOffset
+		}
+	}
+	val offsetDeviationFromTarget by remember {
+		derivedStateOf {
+			if (expanded)
+				IntOffset.Zero
+			else
+				IntOffset(
+					(itemState.originalBounds.topLeft.x - initialTargetOffset.x).roundToInt(),
+					(itemState.originalBounds.topLeft.y - initialTargetOffset.y).roundToInt()
+				)
+		}
+	}
+	val totalOffsetDeviation by remember {
+		derivedStateOf {
+			offsetDeviationFromTarget + swipeOffsetDeviation
+		}
+	}
+
+	val originalSize by remember {
+		derivedStateOf {
+			itemState.originalBounds.roundToIntRect().size
+		}
+	}
+	val maxSize = if (itemState.overlayParameters.size == DpSize.Unspecified)
+		IntSize(
+			(screenSize.width * density).roundToInt(),
+			(screenSize.height * density).roundToInt()
+		)
+	else
+		IntSize(
+			(itemState.overlayParameters.size.width.value * density).toInt() ,
+			(itemState.overlayParameters.size.height.value * density).toInt()
+		)
+
+	val targetSize by remember {
+		derivedStateOf { if (expanded) maxSize else originalSize }
+	}
+
+	val isOverlayAboveOtherOverlays by remember { derivedStateOf { lastOverlayKey == overlayKey } }
+
+	val lastOverlayExpansionFraction by remember {
+		derivedStateOf {
+			if (isOverlayAboveOtherOverlays) {
+				0f
+			} else {
+				state.itemsState[lastOverlayKey]?.animationProgress?.combined ?: 0f
+			}
+		}
+	}
+
+	LookaheadScope {
+		val movableContent = remember {
+			movableContentOf {
+				var sizeAnimation: Animatable<IntSize, AnimationVector2D>? by remember { mutableStateOf(null) }
+				var offsetAnimation: Animatable<IntOffset, AnimationVector2D>? by remember { mutableStateOf(null) }
+
+				LaunchedEffect(Unit, expanded) {
+					initialTargetOffset = originalOffset
+				}
+
+				Box(
+					Modifier.intermediateLayout { measurable, constraints ->
+						val animatedConstraints = Constraints.fixed(
+							width = (sizeAnimation?.value?.width ?: originalSize.width).coerceAtLeast(0),
+							height = (sizeAnimation?.value?.height ?: originalSize.height).coerceAtLeast(0)
+						)
+
+						val placeable = measurable.measure(animatedConstraints)
+
+						val expansionProgress = {
+							(((((sizeAnimation?.value?.width ?: 0) - originalSize.width) / (maxSize.width - originalSize.width)) + (((sizeAnimation?.value?.height ?: 0) - originalSize.height) / (maxSize.height - originalSize.height))) / 2)
+						}
+
+						val animatedScale = {
+							(
+								// scale when another overlay is being displayed
+								(1f - lastOverlayExpansionFraction * 0.05f)
+								+
+								// scale with gestures
+								((gestureProgress) * - 0.1f)
+								// scale back to normal when gestures are completed
+								*
+								expansionProgress()
+							)
+						}
+
+						layout(placeable.width, placeable.height) {
+							if (targetOffset != offsetAnimation?.targetValue) {
+								offsetAnimation?.run {
+									launch { animateTo(targetOffset, tween(6000)) }
+								} ?: Animatable(
+									targetOffset,
+									IntOffset.VectorConverter
+								).let { offsetAnimation = it }
+							}
+
+							if (targetSize != sizeAnimation?.targetValue) {
+								sizeAnimation?.run {
+									launch {
+										animateTo(targetSize, tween(6000))
+										if (!expanded) state.removeFromOverlayStack(overlayKey)
+									}
+								} ?: Animatable(
+									targetSize,
+									IntSize.VectorConverter
+								).let { sizeAnimation = it }
+							}
+
+							if (coordinates != null) {
+								val placementOffset = lookaheadScopeCoordinates.localPositionOf(
+									coordinates!!,
+									Offset.Zero
+								).round()
+
+								val (x, y) = (offsetAnimation?.value ?: targetOffset) + (
+									offsetDeviationFromTarget + IntOffset(
+										x = (swipeOffsetDeviation.x * expansionProgress()),
+										y = (swipeOffsetDeviation.y * expansionProgress())
+									)
+								) - placementOffset
+
+								placeable.placeWithLayer(x, y) {
+									scaleX = animatedScale()
+									scaleY = animatedScale()
+								}
+							} else {
+								placeable.place(0, 0)
+							}
+						}
+					}
+				) {
+					state.getItemsContent(overlayKey)()
+				}
+			}
+		}
+
+
+		DisposableEffect(Unit) {
+			onDispose {
+				state.removeFromOverlayStack(overlayKey)
+			}
+		}
+
+		movableContent()
+
+		LaunchedEffect(Unit) {
+			state.setIsExpandedToTrue(overlayKey)
 		}
 	}
 }
@@ -514,7 +747,7 @@ private fun ContainerMorphOverlay(
 @Composable
 private fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: ComponentActivity) {
 	val lastOverlayKey by remember { derivedStateOf { state.overlayStack.lastOrNull() } }
-	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.firstOrNull() != null } }
+	val isAnyOverlayExpanded by remember { derivedStateOf { state.listOfExpandedOverlays.size != 0 } }
 	val meetsVersionRequirements = Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU || Build.VERSION.CODENAME == "UpsideDownCake"
 
 	val scope = rememberCoroutineScope()
@@ -532,12 +765,12 @@ private fun handleBackGesture(state: OverlayLayoutState, thisOfActivity: Compone
 					}
 				}
 
-				override fun handleOnBackStarted(backEvent: BackEvent) {
+				override fun handleOnBackStarted(backEvent: BackEventCompat) {
 					super.handleOnBackStarted(backEvent)
 					lastOverlayKey?.let { state.setSwipeState(it, true) }
 				}
 
-				override fun handleOnBackProgressed(backEvent: BackEvent) {
+				override fun handleOnBackProgressed(backEvent: BackEventCompat) {
 					super.handleOnBackProgressed(backEvent)
 
 					if (isAnyOverlayExpanded) {
